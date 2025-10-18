@@ -7,7 +7,7 @@
 ![OpenSlide](https://img.shields.io/badge/OpenSlide-4.0.0-orange)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
-A comprehensive AI-powered digital pathology platform that analyzes whole slide images (WSI) using deep learning models to detect tumor regions, generate confidence heatmaps, and provide explainable clinical insights for healthcare professionals.
+A comprehensive AI-powered digital pathology platform that analyzes whole slide images (WSI) - [3,00,00,00,000 x 3,00,00,00,000 pixels] using deep learning models to detect tumor regions, generate confidence heatmaps, and provide explainable clinical insights for healthcare professionals.
 
 **Developed by Team PathFinders for Fusion SKNCOE Hackathon**
 
@@ -16,7 +16,7 @@ A comprehensive AI-powered digital pathology platform that analyzes whole slide 
 ## 🚀 Key Features
 
 ### 🔬 Advanced AI Analysis
-- **Real ML-powered tumor detection** using trained ResNet18 model
+- **Real ML-powered tumor detection** using trained ResNet18 and MobileNet dual model architecture
 - **Whole Slide Image (WSI) support** with OpenSlide integration
 - **H&E stain deconvolution** for enhanced tissue analysis
 - **Tile-based analysis** with confidence scoring per region
@@ -71,7 +71,7 @@ A comprehensive AI-powered digital pathology platform that analyzes whole slide 
 - **Lucide React** - Modern icon library
 
 ### Machine Learning Pipeline
-- **Custom ResNet18** trained on histopathology data
+- **Custom ResNet18 and MobileNet** trained on histopathology data
 - **H&E stain deconvolution** using color deconvolution matrix
 - **Tissue detection** with Otsu thresholding
 - **Tile-based processing** (224x224 patches)
@@ -135,8 +135,6 @@ npm install
 # Start development server
 npm run dev
 ```
-
-**Frontend will be available at:** http://localhost:8080
 
 ---
 
@@ -260,6 +258,38 @@ Digital-Pathology-Image-Analysis-Platform/
 
 ---
 
+##  Results
+
+### 🧫 Sample Tissue Images in WSI
+Below are sample tiles extracted from the WSI image for ML Pipeline Processing.
+
+<p align="center">
+  <img src="./assets/normal_tissue_patch.png" alt="Normal Tissue Patch" width="45%" style="margin-right: 10px;"/>
+  <img src="./assets/tumor_tissue_patch.png" alt="Tumor Tissue Patch" width="45%"/>
+</p>
+
+<p align="center">
+  <em>Left: Normal Tissue | Right: Tumor Tissue</em>
+</p>
+
+---
+
+### 🧬 H&E Stain Deconvolution
+Below are visual results showing **Raw Tiles**, **H (Nuclei)**, and **E (Cytoplasm)** channels extracted during the deconvolution process.
+
+![H&E Deconvolution Results](./assets/Results.jpeg)
+
+### 🔥 Tumor Confidence Heatmap
+This heatmap shows the **model’s confidence distribution** across H&E-stained tiles.  
+Regions in bright yellow indicate higher tumor probability.
+
+![Tumor Confidence Heatmap](./assets/Heatmaps.jpeg)
+
+---
+
+
+
+
 ## 📊 Usage Workflow
 
 ### 1. Patient Registration
@@ -312,49 +342,7 @@ VITE_API_BASE_URL=http://localhost:8000
 
 ---
 
-## 🚨 Troubleshooting
 
-### Common Issues
-
-**Backend Issues:**
-- **Model Loading Error**: Ensure `resnet18.ckpt` is in the backend directory
-- **CUDA Issues**: Install appropriate PyTorch version for your system
-- **OpenSlide Error**: Install OpenSlide system dependencies
-- **Groq API Error**: Verify API key is set correctly
-
-**Frontend Issues:**
-- **CORS Errors**: Ensure backend runs on port 8000, frontend on 8080
-- **Build Errors**: Clear node_modules and reinstall dependencies
-- **Image Upload Fails**: Check file format and size limits
-
-**Analysis Issues:**
-- **No Tissue Detected**: Image may be too light or lack tissue content
-- **Low Confidence**: Normal for images with minimal pathological features
-- **Slow Processing**: Large WSI files may take several minutes
-
-### Debug Commands
-```bash
-# Backend logs
-python main.py --log-level debug
-
-# Frontend development
-npm run dev -- --debug
-
-# Check system health
-curl http://localhost:8000/api/health
-```
-
----
-
-## 🔒 Security & Privacy
-
-- **Local Processing**: All analysis happens on local machine
-- **No Cloud Upload**: Patient data never leaves your system
-- **SQLite Database**: Local file-based storage
-- **HTTPS Ready**: Production deployment supports SSL/TLS
-- **Data Validation**: Comprehensive input validation and sanitization
-
----
 
 ## 🚀 Future Enhancements
 
@@ -407,6 +395,6 @@ For technical support or questions:
 
 ---
 
-**Last Updated**: January 2025  
+**Last Updated**: October 2025  
 **Version**: 2.0.0  
 **Status**: Active Development
