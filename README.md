@@ -49,10 +49,6 @@ A comprehensive AI-powered digital pathology platform that analyzes whole slide 
 
 ---
 
-### 🎥 Demo Video
-
-[![Demo Preview]](./assets/Demonstration.mp4)
-
 ## 🛠️ Technology Stack
 
 ### Backend (Python)
