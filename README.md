@@ -96,9 +96,6 @@ A comprehensive AI-powered digital pathology platform that analyzes whole slide 
 ```bash
 cd backend
 
-# Initialize uv project (creates pyproject.toml + uv.lock)
-uv init
-
 # Create virtual environment
 uv venv
 
