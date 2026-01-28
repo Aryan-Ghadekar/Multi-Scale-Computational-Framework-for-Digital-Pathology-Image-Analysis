@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from backend.models.models import Patient, Analysis, Report
-from backend.schema.schemas import PatientCreate, PatientUpdate, PatientResponse
+from models.models import Patient, Analysis, Report
+from schema.schemas import PatientCreate, PatientUpdate, PatientResponse
 import uuid
 from datetime import datetime
 
