@@ -97,6 +97,35 @@ git clone <repository-url>
 cd Digital-Pathology-Image-Analysis-Platform
 ```
 
+cd backend
+
+# Install uv (one-time)
+pip install uv
+
+# Initialize uv project (creates pyproject.toml + uv.lock)
+uv init
+
+# Create virtual environment
+uv venv
+
+# Activate virtual environment
+# Windows:
+.venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
+
+
+
+# Install dependencies (locked versions)
+uv sync
+
+# Set environment variables
+export GROQ_API_KEY="your-groq-api-key-here"
+
+# Run the backend server
+python main.py
+
+
 ### 2. Backend Setup
 ```bash
 cd backend
