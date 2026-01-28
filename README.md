@@ -91,16 +91,10 @@ A comprehensive AI-powered digital pathology platform that analyzes whole slide 
 
 ## 🚀 Installation & Setup
 
-### 1. Clone Repository
+
+### 2. Backend Setup with uv
 ```bash
-git clone <repository-url>
-cd Digital-Pathology-Image-Analysis-Platform
-```
-
 cd backend
-
-# Install uv (one-time)
-pip install uv
 
 # Initialize uv project (creates pyproject.toml + uv.lock)
 uv init
@@ -110,13 +104,11 @@ uv venv
 
 # Activate virtual environment
 # Windows:
-.venv\Scripts\activate
+venv\Scripts\activate
 # macOS/Linux:
-source .venv/bin/activate
+source venv/bin/activate
 
-
-
-# Install dependencies (locked versions)
+# Install dependencies
 uv sync
 
 # Set environment variables
@@ -124,9 +116,9 @@ export GROQ_API_KEY="your-groq-api-key-here"
 
 # Run the backend server
 python main.py
+```
 
-
-### 2. Backend Setup
+### 2. Backend Setup with pip
 ```bash
 cd backend
 
