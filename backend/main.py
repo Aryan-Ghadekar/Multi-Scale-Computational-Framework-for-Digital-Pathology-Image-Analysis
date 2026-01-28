@@ -9,17 +9,17 @@ import uuid
 from datetime import datetime
 import aiofiles
 import json
-from analysis_service import AnalysisService
-from database import get_db, engine, Base
-from models import Patient, Analysis, Report
-from schemas import (
+from backend.service.analysis_service import AnalysisService
+from backend.config.database import get_db, engine, Base
+from backend.models.models import Patient, Analysis, Report
+from backend.schema.schemas import (
     PatientCreate, PatientUpdate, PatientResponse, 
     AnalysisResponse, ReportCreate, ReportResponse,
     AIExplanationRequest, AIExplanationResponse
 )
-from patient_service import PatientService
-from report_service import ReportService
-from ai_service import AIService
+from backend.service.patient_service import PatientService
+from backend.service.report_service import ReportService
+from backend.service.ai_service import AIService
 
 # Create tables
 Base.metadata.create_all(bind=engine)
