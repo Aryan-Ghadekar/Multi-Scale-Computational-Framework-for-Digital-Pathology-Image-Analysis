@@ -114,8 +114,7 @@ uv venv
 # macOS/Linux:
 source .venv/bin/activate
 
-# Import dependencies from existing requirements.txt (one-time)
-uv add -r requirements.txt
+
 
 # Install dependencies (locked versions)
 uv sync
