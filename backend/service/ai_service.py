@@ -1,7 +1,7 @@
 import os
 import json
 from groq import Groq
-from backend.schema.schemas import AIExplanationRequest, AIExplanationResponse
+from schema.schemas import AIExplanationRequest, AIExplanationResponse
 from typing import Dict, Any, List
 
 class AIService:

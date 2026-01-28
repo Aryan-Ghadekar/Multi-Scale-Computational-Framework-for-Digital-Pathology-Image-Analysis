@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean
 from sqlalchemy.sql import func
-from backend.config.database import Base
+from config.database import Base
 import datetime
 
 class Patient(Base):
