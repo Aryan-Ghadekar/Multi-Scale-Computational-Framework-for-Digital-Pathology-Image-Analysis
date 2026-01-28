@@ -384,10 +384,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ---
 
-## 👥 Team PathFinders
-
-**Developed for Fusion SKNCOE Hackathon**
-
 For technical support or questions:
 - Check the [API Documentation](http://localhost:8000/api/docs)
 - Review backend logs for detailed error information
@@ -395,6 +391,6 @@ For technical support or questions:
 
 ---
 
-**Last Updated**: October 2025  
+**Last Updated**: January 2026  
 **Version**: 2.0.0  
 **Status**: Active Development
