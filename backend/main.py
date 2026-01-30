@@ -21,6 +21,9 @@ from service.patient_service import PatientService
 from service.report_service import ReportService
 from service.ai_service import AIService
 
+from service.tif_to_png_service import convert_tif_to_png
+
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -47,57 +50,16 @@ app.add_middleware(
 )
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory="static"),
+    name="static"
+)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/reports", StaticFiles(directory="reports"), name="reports")
 
 # Initialize services
 ai_service = AIService()
-
-# Mock analysis function (same as before)
-def analyze_pathology_image(image_path: str) -> dict:
-    import numpy as np
-    lesion_probability = np.random.uniform(40, 90)
-    overall_confidence = np.random.uniform(60, 95)
-    
-    if overall_confidence >= 75:
-        confidence_level = "High"
-    elif overall_confidence >= 50:
-        confidence_level = "Moderate"
-    else:
-        confidence_level = "Low"
-    
-    regions = [
-        {
-            "id": "A",
-            "name": "Region A (Upper Left)",
-            "confidence": np.random.uniform(70, 90),
-            "score": np.random.uniform(0.7, 0.9),
-            "bbox": [100, 100, 200, 200]
-        },
-        {
-            "id": "B", 
-            "name": "Region B (Center)",
-            "confidence": np.random.uniform(60, 80),
-            "score": np.random.uniform(0.6, 0.8),
-            "bbox": [300, 200, 400, 300]
-        },
-        {
-            "id": "C",
-            "name": "Region C (Lower Right)", 
-            "confidence": np.random.uniform(50, 70),
-            "score": np.random.uniform(0.5, 0.7),
-            "bbox": [400, 400, 500, 500]
-        }
-    ]
-    
-    return {
-        "lesion_probability": round(lesion_probability, 1),
-        "overall_confidence": round(overall_confidence, 1),
-        "confidence_level": confidence_level,
-        "regions": regions,
-        "analysis_summary": f"AI analysis completed with {confidence_level.lower()} confidence."
-    }
 
 # Patient Routes
 @app.post("/api/patients/", response_model=PatientResponse)
@@ -156,6 +118,7 @@ async def analyze_image(
             content = await file.read()
             await out_file.write(content)
         
+        preview_png_path = convert_tif_to_png(file_path)
         # Perform analysis (simplified for now)
         analysis_result = AnalysisService.analyze_image(file_path)
         
@@ -197,6 +160,10 @@ async def analyze_image(
             "analysis_summary": analysis_result["analysis_summary"],
             "ai_explanation": db_analysis.ai_explanation,
             "original_image_url": f"/uploads/{unique_filename}",
+            "preview_image_url": (
+    f"/static/previews/{os.path.basename(preview_png_path)}"
+    if preview_png_path else None
+),
             "created_at": db_analysis.created_at.isoformat() if db_analysis.created_at else datetime.now().isoformat()
         }
         

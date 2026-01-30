@@ -3,7 +3,6 @@ import { ZoomIn, ZoomOut, Maximize2, ImageIcon, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import ImageURL from "../../public/tumor_heatmap.png";
 
 interface WSIViewerProps {
   showHeatmap: boolean;
@@ -21,16 +20,16 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
   const [heatmapImageUrl, setHeatmapImageUrl] = useState<string>(""); // ADD THIS LINE
 
   useEffect(() => {
-    if (analysisData && showHeatmap) {
-      // Load the generated tumor_heatmap.png
-      const heatmapUrl = ImageURL;
-      setHeatmapImageUrl(heatmapUrl);
-      
-      // Optional: Add timestamp to prevent caching
-      // const heatmapUrl = `/tumor_heatmap.png?t=${new Date().getTime()}`;
-      // setHeatmapImageUrl(heatmapUrl);
-    }
-  }, [analysisData, showHeatmap]);
+  if (analysisData?.preview_png) {
+    setImageUrl(`${analysisData.preview_png}?t=${Date.now()}`);
+  } else if (uploadedImage) {
+    const url = URL.createObjectURL(uploadedImage);
+    setImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }
+}, [analysisData, uploadedImage]);
+
+
 
   useEffect(() => {
     if (uploadedImage) {

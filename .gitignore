@@ -9,3 +9,8 @@ backend/venv
 *.ckpt
 *.tif
 *.db
+backend/venv/
+Lib\site-packages/
+*.log
+backend/.venv/
+*.png
