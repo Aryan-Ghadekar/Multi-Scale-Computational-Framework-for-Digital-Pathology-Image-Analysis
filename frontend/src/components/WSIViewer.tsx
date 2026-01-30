@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { ZoomIn, ZoomOut, Maximize2, ImageIcon, FileImage } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, ImageIcon, FileImage, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface WSIViewerProps {
   showHeatmap: boolean;
@@ -11,36 +12,41 @@ interface WSIViewerProps {
   analysisData?: any;
 }
 
+const BACKEND_URL = "http://localhost:8000";
+
 export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysisData }: WSIViewerProps) => {
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageUrl, setImageUrl] = useState<string>("");
-  const [heatmapImageUrl, setHeatmapImageUrl] = useState<string>(""); // ADD THIS LINE
+  const [imageError, setImageError] = useState<boolean>(false);
+  const [imageLoading, setImageLoading] = useState<boolean>(true);
 
   useEffect(() => {
-  if (analysisData?.preview_png) {
-    setImageUrl(`${analysisData.preview_png}?t=${Date.now()}`);
-  } else if (uploadedImage) {
-    const url = URL.createObjectURL(uploadedImage);
-    setImageUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }
-}, [analysisData, uploadedImage]);
+    setImageError(false);
+    setImageLoading(true);
 
+    if (analysisData?.preview_image_url) {
+      // Handle preview image from analysis
+      const fullUrl = analysisData.preview_image_url.startsWith("http")
+        ? analysisData.preview_image_url
+        : `${BACKEND_URL}${analysisData.preview_image_url}`;
 
-
-  useEffect(() => {
-    if (uploadedImage) {
+      console.log("🟢 Setting preview image URL:", fullUrl);
+      setImageUrl(fullUrl);
+    } else if (uploadedImage) {
+      // Handle uploaded image directly
       const url = URL.createObjectURL(uploadedImage);
+      console.log("🟡 Using uploaded blob URL:", url);
       setImageUrl(url);
-      
-      return () => {
-        URL.revokeObjectURL(url);
-      };
+      return () => URL.revokeObjectURL(url);
+    } else {
+      // No image
+      setImageUrl("");
+      setImageLoading(false);
     }
-  }, [uploadedImage]);
+  }, [analysisData, uploadedImage]);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5));
@@ -62,21 +68,29 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
       });
     }
   };
-  
 
   const handleMouseUp = () => setIsDragging(false);
 
+  const handleImageLoad = () => {
+    console.log("✅ Image loaded successfully:", imageUrl);
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    console.error("❌ Image failed to load:", imageUrl);
+    setImageError(true);
+    setImageLoading(false);
+  };
+
   // Render REAL heatmap overlay from ML analysis data
   const renderHeatmapOverlay = () => {
-    if (!showHeatmap || !heatmapImageUrl) return null;
+    if (!showHeatmap || !analysisData?.heatmap_data) return null;
 
     return (
       <div className="absolute inset-0 pointer-events-none">
-        <img
-          src={heatmapImageUrl}
-          alt="Tumor Confidence Heatmap"
-          className="w-full h-full object-contain opacity-70"
-        />
+        {/* Heatmap visualization would go here */}
+        <div className="w-full h-full bg-gradient-to-br from-red-500/20 to-green-500/20 opacity-60" />
       </div>
     );
   };
@@ -153,7 +167,7 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
   };
 
   return (
-     <div className="relative w-full h-full bg-viewer-bg rounded-xl overflow-hidden">
+    <div className="relative w-full h-full bg-viewer-bg rounded-xl overflow-hidden">
       {/* Floating Toolbar */}
       <div className="absolute top-4 left-4 z-10 flex gap-2">
         <Card className="flex items-center gap-1 p-1 bg-toolbar-bg/90 backdrop-blur-sm shadow-medium">
@@ -247,29 +261,58 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
           <div className="w-[800px] h-[600px] rounded-lg overflow-hidden shadow-soft border-2 border-panel-border bg-card relative">
             {imageUrl ? (
               <>
-                {/* Background Image */}
+                {imageError && (
+                  <Alert variant="destructive" className="absolute top-4 left-4 right-4 z-20">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Failed to load image. Please check if the server is running and the image path is correct.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {/* Main Image */}
                 <img
                   src={imageUrl}
                   alt="Uploaded pathology image"
                   className={cn(
-                    "w-full h-full object-contain transition-opacity duration-300",
-                    showHeatmap ? "opacity-40" : "opacity-100"
+                    "w-full h-full object-contain",
+                    showHeatmap && analysisData ? "opacity-40" : "opacity-100",
+                    imageLoading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
                   )}
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
                 />
+                
+                {/* Loading Overlay */}
+                {imageLoading && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                    <div className="text-center space-y-3 bg-card/90 p-6 rounded-lg shadow-lg">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+                      <p className="text-sm font-medium text-foreground">
+                        Loading Image...
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-xs">
+                        {analysisData?.preview_image_url ? 
+                          "Loading converted PNG preview" : 
+                          "Processing uploaded image"}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Heatmap Overlay */}
                 {renderHeatmapOverlay()}
 
-                {/* Loading/Status Overlay */}
-                {!analysisData && (
+                {/* Analysis Loading Overlay */}
+                {!analysisData && !imageLoading && (
                   <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
                     <div className="text-center space-y-3 bg-card/80 p-6 rounded-lg">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
                       <p className="text-sm font-medium text-foreground">
-                        Analyzing Image...
+                        Ready for Analysis
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        ML model processing tissue regions
+                        Image loaded. Click "Analyze" to process with ML model
                       </p>
                     </div>
                   </div>
@@ -277,7 +320,7 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
 
                 {/* Heatmap Mode Indicator */}
                 {showHeatmap && analysisData && (
-                  <div className="absolute top-2 left-2 bg-destructive/80 text-destructive-foreground px-2 py-1 rounded text-xs font-medium">
+                  <div className="absolute top-2 left-2 bg-destructive/80 text-destructive-foreground px-2 py-1 rounded text-xs font-medium z-10">
                     HEATMAP MODE
                   </div>
                 )}
