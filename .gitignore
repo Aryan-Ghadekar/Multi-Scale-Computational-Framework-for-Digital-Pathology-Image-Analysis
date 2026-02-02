@@ -14,3 +14,5 @@ Lib\site-packages/
 *.log
 backend/.venv/
 *.png
+*.pdf
+*.jpg
