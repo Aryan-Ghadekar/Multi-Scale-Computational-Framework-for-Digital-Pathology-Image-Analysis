@@ -122,15 +122,6 @@ async def analyze_image(
         # Perform analysis (simplified for now)
         analysis_result = AnalysisService.analyze_image(file_path)
         
-        # Create a simple AI explanation without Groq dependency
-        simple_explanation = AnalysisService.generate_ai_insights(
-            analysis_result, 
-            {
-                "age": patient.age,
-                "gender": patient.gender,
-                "medical_history": patient.medical_history
-            }
-        )
         
         # Save analysis to database
         db_analysis = Analysis(
@@ -141,13 +132,49 @@ async def analyze_image(
             overall_confidence=analysis_result["overall_confidence"],
             confidence_level=analysis_result["confidence_level"],
             analysis_data=json.dumps(analysis_result),
-            ai_explanation=simple_explanation
+            ai_explanation=""  # Empty for now, will be filled by dedicated call
         )
         
         db.add(db_analysis)
         db.commit()
         db.refresh(db_analysis)
+
+        ai_request = AIExplanationRequest(
+            patient_info={
+                "name": patient.name,
+                "age": patient.age,
+                "gender": patient.gender,
+                "medical_history": patient.medical_history
+            },
+            analysis_data=analysis_result,
+            specific_question="Please explain these pathology findings in clinical terms."
+        )
         
+        try:
+            ai_response = ai_service.generate_explanation(ai_request)
+            detailed_explanation = f"{ai_response.explanation}\n\nKey Findings:\n" + \
+                                "\n".join(f"• {finding}" for finding in ai_response.key_findings) + \
+                                f"\n\nRecommendations:\n" + \
+                                "\n".join(f"• {rec}" for rec in ai_response.recommendations)
+            
+            # Update with detailed explanation
+            db_analysis.ai_explanation = detailed_explanation
+            db.commit()
+            
+        except Exception as e:
+            # Fallback to simple explanation
+            simple_explanation = AnalysisService.generate_ai_insights(
+                analysis_result, 
+                {
+                    "name": patient.name,
+                    "age": patient.age,
+                    "gender": patient.gender,
+                    "medical_history": patient.medical_history
+                }
+            )
+            db_analysis.ai_explanation = simple_explanation
+            db.commit()
+
         # Prepare response
         response_data = {
             "id": db_analysis.id,
@@ -158,13 +185,18 @@ async def analyze_image(
             "confidence_level": db_analysis.confidence_level,
             "regions": analysis_result["regions"],
             "analysis_summary": analysis_result["analysis_summary"],
-            "ai_explanation": db_analysis.ai_explanation,
+            "ai_explanation": db_analysis.ai_explanation,  # Now with proper AI explanation
             "original_image_url": f"/uploads/{unique_filename}",
             "preview_image_url": (
-    f"/static/previews/{os.path.basename(preview_png_path)}"
-    if preview_png_path else None
-),
-            "created_at": db_analysis.created_at.isoformat() if db_analysis.created_at else datetime.now().isoformat()
+                f"/static/previews/{os.path.basename(preview_png_path)}"
+                if preview_png_path else None
+            ),
+            "created_at": db_analysis.created_at.isoformat() if db_analysis.created_at else datetime.now().isoformat(),
+            # Add structured AI data for frontend
+            "ai_analysis": {
+                "key_findings": ai_response.key_findings if 'ai_response' in locals() else [],
+                "recommendations": ai_response.recommendations if 'ai_response' in locals() else []
+            }
         }
         
         return JSONResponse(content=response_data)
@@ -179,6 +211,74 @@ async def analyze_image(
 @app.post("/api/explain", response_model=AIExplanationResponse)
 def get_ai_explanation(request: AIExplanationRequest):
     return ai_service.generate_explanation(request)
+
+
+@app.post("/api/analysis/{analysis_id}/regenerate-explanation")
+def regenerate_explanation(
+    analysis_id: int,
+    specific_question: str = None,
+    db: Session = Depends(get_db)
+):
+    """Regenerate AI explanation for an existing analysis"""
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    patient = db.query(Patient).filter(Patient.id == analysis.patient_id).first()
+    
+    # Parse analysis data
+    analysis_data = json.loads(analysis.analysis_data) if analysis.analysis_data else {}
+    
+    # Create AI request
+    ai_request = AIExplanationRequest(
+        patient_info={
+            "name": patient.name if patient else "Unknown",
+            "age": patient.age if patient else "N/A",
+            "gender": patient.gender if patient else "N/A",
+            "medical_history": patient.medical_history if patient else ""
+        },
+        analysis_data=analysis_data,
+        specific_question=specific_question or "Please explain these findings."
+    )
+    
+    # Get AI explanation
+    ai_response = ai_service.generate_explanation(ai_request)
+    
+    # Update analysis
+    detailed_explanation = f"{ai_response.explanation}\n\nKey Findings:\n" + \
+                          "\n".join(f"• {finding}" for finding in ai_response.key_findings) + \
+                          f"\n\nRecommendations:\n" + \
+                          "\n".join(f"• {rec}" for rec in ai_response.recommendations)
+    
+    analysis.ai_explanation = detailed_explanation
+    db.commit()
+    db.refresh(analysis)  # Refresh to get updated data
+    
+    # Return COMPLETE analysis data, not just explanation
+    return {
+        "id": analysis.id,
+        "case_id": analysis.case_id,
+        "patient_id": analysis.patient_id,
+        "lesion_probability": analysis.lesion_probability,
+        "overall_confidence": analysis.overall_confidence,
+        "confidence_level": analysis.confidence_level,
+        "regions": analysis_data.get("regions", []),
+        "analysis_summary": analysis_data.get("analysis_summary", ""),
+        "ai_explanation": analysis.ai_explanation,
+        "original_image_url": analysis.image_path.replace("uploads/", "/uploads/") if analysis.image_path else None,
+        "preview_image_url": (
+            f"/static/previews/{os.path.basename(analysis.image_path).replace('.tif', '.png').replace('.tiff', '.png')}"
+            if analysis.image_path and any(ext in analysis.image_path.lower() for ext in ['.tif', '.tiff'])
+            else None
+        ),
+        "created_at": analysis.created_at.isoformat() if analysis.created_at else datetime.now().isoformat(),
+        "ai_analysis": {
+            "key_findings": ai_response.key_findings,
+            "recommendations": ai_response.recommendations
+        },
+        "metrics": analysis_data.get("metrics", {}),
+        "raw_predictions": analysis_data.get("raw_predictions", {})
+    }
 
 # Report Routes
 @app.post("/api/reports/", response_model=ReportResponse)
@@ -200,6 +300,9 @@ def download_report(report_id: int, db: Session = Depends(get_db)):
 @app.get("/api/patients/{patient_id}/reports")
 def get_patient_reports(patient_id: int, db: Session = Depends(get_db)):
     return ReportService.get_reports_by_patient(db, patient_id)
+
+
+
 
 # Health check
 @app.get("/api/health")

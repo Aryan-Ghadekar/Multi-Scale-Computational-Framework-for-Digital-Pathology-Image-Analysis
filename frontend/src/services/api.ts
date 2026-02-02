@@ -40,23 +40,23 @@ export const patientApi = {
 };
 
 // Analysis API
-export const analysisApi = {
-  analyze: async (patientId: number, file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
+// export const analysisApi = {
+//   analyze: async (patientId: number, file: File) => {
+//     const formData = new FormData();
+//     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/analyze/${patientId}`, {
-      method: 'POST',
-      body: formData,
-    });
+//     const response = await fetch(`${API_BASE_URL}/analyze/${patientId}`, {
+//       method: 'POST',
+//       body: formData,
+//     });
 
-    if (!response.ok) {
-      throw new Error(`Analysis failed: ${response.statusText}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`Analysis failed: ${response.statusText}`);
+//     }
 
-    return response.json();
-  },
-};
+//     return response.json();
+//   },
+// };
 
 // AI Explanation API
 export const aiApi = {
@@ -100,6 +100,47 @@ export const reportApi = {
   },
   
   getPatientReports: (patientId: number) => apiCall(`/patients/${patientId}/reports`),
+};
+
+// Analysis API
+export const analysisApi = {
+  analyze: async (patientId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/analyze/${patientId}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Analysis failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  regenerateExplanation: async (analysisId: number, question?: string) => {
+    const url = `${API_BASE_URL}/analysis/${analysisId}/regenerate-explanation`;
+    
+    // Send question as query parameter or in body
+    const body = question ? JSON.stringify({ specific_question: question }) : undefined;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: body,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Regeneration failed: ${response.statusText} - ${errorText}`);
+    }
+
+    return response.json();
+  },
 };
 
 // Health check
