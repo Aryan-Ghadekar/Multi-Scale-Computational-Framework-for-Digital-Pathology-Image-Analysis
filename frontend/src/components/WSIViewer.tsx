@@ -10,11 +10,12 @@ interface WSIViewerProps {
   onToggleHeatmap: () => void;
   uploadedImage?: File | null;
   analysisData?: any;
+  isLoading?: boolean;
 }
 
 const BACKEND_URL = "http://localhost:8000";
 
-export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysisData }: WSIViewerProps) => {
+export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysisData, isLoading=false }: WSIViewerProps) => {
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -168,6 +169,14 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
 
   return (
     <div className="relative w-full h-full bg-viewer-bg rounded-xl overflow-hidden">
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Updating AI analysis...</p>
+          </div>
+        </div>
+      )}
       {/* Floating Toolbar */}
       <div className="absolute top-4 left-4 z-10 flex gap-2">
         <Card className="flex items-center gap-1 p-1 bg-toolbar-bg/90 backdrop-blur-sm shadow-medium">
@@ -264,9 +273,9 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
                 {imageError && (
                   <Alert variant="destructive" className="absolute top-4 left-4 right-4 z-20">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
+                    {/* <AlertDescription>
                       Failed to load image. Please check if the server is running and the image path is correct.
-                    </AlertDescription>
+                    </AlertDescription> */}
                   </Alert>
                 )}
                 
