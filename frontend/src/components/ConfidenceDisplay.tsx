@@ -1,6 +1,4 @@
-import { useEffect, useRef } from "react";
-import { Activity, TrendingUp, MapPin, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
-import { MetricCard } from "./MetricCard";
+import { MapPin, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfidenceDisplayProps {
@@ -53,11 +51,15 @@ const ArcMeter = ({ value, size = 100 }: { value: number; size?: number }) => {
           }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-extrabold text-foreground leading-none" style={{ marginTop: 4 }}>
-          {value}
+      {/* Text overlay — always rounded to prevent overflow */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ marginTop: 4 }}>
+        <span
+          className="font-extrabold text-foreground leading-none tabular-nums"
+          style={{ fontSize: Math.round(value) >= 100 ? 14 : Math.round(value) >= 10 ? 18 : 20 }}
+        >
+          {Math.round(value)}
         </span>
-        <span className="text-[10px] font-semibold text-muted-foreground leading-none mt-0.5">%</span>
+        <span className="text-[9px] font-semibold text-muted-foreground leading-none mt-0.5">%</span>
       </div>
     </div>
   );
@@ -86,7 +88,7 @@ export const ConfidenceDisplay = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-slide-up">
       {/* Lesion Probability — arc meter */}
-      <div className="glass-card rounded-2xl p-4 flex items-center gap-4 shadow-soft col-span-1">
+      <div className="glass-card rounded-2xl p-4 flex items-center gap-4 shadow-soft">
         <ArcMeter value={lesionProbability} size={90} />
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Lesion Probability</p>
