@@ -1,86 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    /* Clinical light theme - medical SaaS aesthetic */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 20%;
+    /* ── Light Theme ── */
+    --background: 210 30% 97%;
+    --foreground: 215 30% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 20%;
+    --card-foreground: 215 30% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 20%;
+    --popover-foreground: 215 30% 15%;
 
-    /* Medical teal/blue primary */
-    --primary: 192 70% 45%;
+    /* Medical teal/cyan primary */
+    --primary: 187 85% 40%;
     --primary-foreground: 0 0% 100%;
 
-    /* Soft grey secondary */
-    --secondary: 210 15% 92%;
-    --secondary-foreground: 215 25% 20%;
+    --secondary: 210 20% 93%;
+    --secondary-foreground: 215 25% 25%;
 
-    --muted: 210 15% 95%;
-    --muted-foreground: 215 15% 50%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 18% 52%;
 
-    --accent: 192 65% 88%;
-    --accent-foreground: 192 70% 25%;
+    --accent: 187 70% 92%;
+    --accent-foreground: 187 85% 25%;
 
     /* Confidence colors */
-    --success: 142 70% 45%;
+    --success: 158 64% 42%;
     --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 50%;
+
+    --warning: 38 95% 52%;
     --warning-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 4 86% 58%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 215 20% 88%;
-    --input: 215 20% 88%;
-    --ring: 192 70% 45%;
+    --input: 215 20% 90%;
+    --ring: 187 85% 40%;
 
-    --radius: 0.75rem;
-    
+    --radius: 0.875rem;
+
     /* Medical platform specific */
-    --viewer-bg: 210 15% 96%;
+    --viewer-bg: 215 20% 94%;
     --toolbar-bg: 0 0% 100%;
     --panel-border: 215 20% 90%;
-    
-    /* Shadows for depth */
-    --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.12);
-    
-    /* Transitions */
+
+    /* Glassmorphism */
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-bg-dark: rgba(15, 23, 42, 0.75);
+    --glass-border-dark: rgba(255, 255, 255, 0.08);
+
+    /* Glow effects */
+    --glow-primary: 0 0 24px rgba(14, 178, 196, 0.35);
+    --glow-success: 0 0 20px rgba(52, 211, 153, 0.3);
+    --glow-warning: 0 0 20px rgba(251, 191, 36, 0.3);
+
+    /* Shadows */
+    --shadow-soft: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+    --shadow-medium: 0 4px 24px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-heavy: 0 8px 40px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08);
+
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    /* Keep light theme only - medical platforms typically don't use dark mode */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 20%;
+    --background: 222 47% 8%;
+    --foreground: 210 40% 95%;
+
+    --card: 222 40% 11%;
+    --card-foreground: 210 40% 95%;
+
+    --popover: 222 40% 11%;
+    --popover-foreground: 210 40% 95%;
+
+    --primary: 187 85% 48%;
+    --primary-foreground: 222 47% 8%;
+
+    --secondary: 222 35% 16%;
+    --secondary-foreground: 210 30% 85%;
+
+    --muted: 222 35% 14%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 187 50% 18%;
+    --accent-foreground: 187 85% 72%;
+
+    --success: 158 64% 48%;
+    --success-foreground: 158 64% 10%;
+
+    --warning: 38 90% 56%;
+    --warning-foreground: 38 90% 10%;
+
+    --destructive: 4 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 30% 20%;
+    --input: 222 30% 18%;
+    --ring: 187 85% 48%;
+
+    --viewer-bg: 222 40% 9%;
+    --toolbar-bg: 222 40% 12%;
+    --panel-border: 222 30% 20%;
+
+    --glass-bg: rgba(15, 23, 42, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.07);
+    --glow-primary: 0 0 30px rgba(14, 178, 196, 0.45);
+
+    --shadow-soft: 0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.25);
+    --shadow-medium: 0 4px 24px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-heavy: 0 8px 48px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -98,7 +142,208 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
+
+  code, pre, .mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+@layer components {
+  /* ── Glassmorphism cards ── */
+  .glass-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .dark .glass-card {
+    background: var(--glass-bg-dark);
+    border: 1px solid var(--glass-border-dark);
+  }
+
+  /* ── Glow ring on primary items ── */
+  .glow-ring {
+    box-shadow: var(--glow-primary);
+  }
+
+  /* ── Gradient text ── */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(187 85% 44%), hsl(200 90% 55%), hsl(160 70% 48%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Medical gradient background ── */
+  .medical-gradient {
+    background: linear-gradient(135deg,
+      hsl(220 50% 10%) 0%,
+      hsl(210 55% 12%) 40%,
+      hsl(190 60% 14%) 70%,
+      hsl(180 55% 10%) 100%
+    );
+  }
+
+  /* ── Animated scan line ── */
+  .scan-overlay {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scan-overlay::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
+    animation: scan-line 2s ease-in-out infinite;
+    opacity: 0.7;
+  }
+
+  /* ── Confidence gradient bar ── */
+  .confidence-gradient {
+    background: linear-gradient(
+      90deg,
+      hsl(4 86% 58%) 0%,
+      hsl(38 95% 52%) 45%,
+      hsl(158 64% 42%) 100%
+    );
+  }
+
+  /* ── Status pill ── */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* ── Metric card ── */
+  .metric-card {
+    @apply glass-card rounded-xl p-4 flex flex-col gap-1.5;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+  }
+
+  /* ── Clinical chip ── */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* ── Scrollbar styling ── */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 2px;
+  }
+
+  /* ── Quick question chips ── */
+  .quick-chip {
+    @apply text-xs px-3 py-1.5 rounded-full border cursor-pointer transition-all duration-200;
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+  }
+
+  .quick-chip:hover {
+    border-color: hsl(var(--primary));
+    color: hsl(var(--primary));
+    background: hsl(var(--accent));
+  }
+}
+
+@layer utilities {
+  /* ── Shadow utilities ── */
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-medium { box-shadow: var(--shadow-medium); }
+  .shadow-heavy { box-shadow: var(--shadow-heavy); }
+  .shadow-glow { box-shadow: var(--glow-primary); }
+}
+
+/* ── Keyframe Animations ── */
+@keyframes scan-line {
+  0%   { top: -2px; opacity: 0; }
+  10%  { opacity: 0.7; }
+  90%  { opacity: 0.7; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(14, 178, 196, 0.3); }
+  50%       { box-shadow: 0 0 24px rgba(14, 178, 196, 0.65); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes meter-fill {
+  from { stroke-dashoffset: 251; }
+  to   { stroke-dashoffset: var(--target-offset); }
+}
+
+@keyframes bar-fill {
+  from { width: 0%; }
+  to   { width: var(--target-width); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
