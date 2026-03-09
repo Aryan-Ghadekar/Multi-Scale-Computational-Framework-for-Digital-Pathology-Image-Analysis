@@ -37,8 +37,10 @@ export const WSIViewer = ({
   const [imageError, setImageError] = useState<boolean>(false);
   const [imageLoading, setImageLoading] = useState<boolean>(true);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+  const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   // Measure container size for overlay calculations
   useEffect(() => {
@@ -91,13 +93,25 @@ export const WSIViewer = ({
   };
   const handleMouseUp = () => setIsDragging(false);
 
-  const handleImageLoad = () => { setImageLoading(false); setImageError(false); };
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+    if (imageRef.current) {
+      setNaturalSize({ width: imageRef.current.naturalWidth, height: imageRef.current.naturalHeight });
+    }
+  };
   const handleImageError = () => { setImageError(true); setImageLoading(false); };
 
   /** Jump viewer to show a given region by computing the needed zoom & pan */
   const jumpToRegion = useCallback((region: Region) => {
     const hd = analysisData?.heatmap_data;
-    if (!hd?.width || !hd?.height) return;
+    // Use heatmap dims if available, otherwise fall back to natural image size
+    const slideW = (hd?.width && hd.width > 0) ? hd.width : naturalSize.width;
+    const slideH = (hd?.height && hd.height > 0) ? hd.height : naturalSize.height;
+    if (!slideW || !slideH) return;
+
+    // Patch so existing code below can use these
+    const patchedHd = { width: slideW, height: slideH };
     const [x1, y1, x2, y2] = region.bbox;
 
     // Compute target zoom to fit this region at ~60% of viewport
@@ -105,7 +119,7 @@ export const WSIViewer = ({
     const regionH = y2 - y1;
     if (regionW <= 0 || regionH <= 0) return;
 
-    const imageAspect = hd.width / hd.height;
+    const imageAspect = patchedHd.width / patchedHd.height;
     const containerAspect = containerSize.width / containerSize.height;
     let displayW: number, displayH: number;
     if (imageAspect > containerAspect) {
@@ -116,8 +130,8 @@ export const WSIViewer = ({
       displayW = containerSize.height * imageAspect;
     }
 
-    const scaleX = displayW / hd.width;
-    const scaleY = displayH / hd.height;
+    const scaleX = displayW / patchedHd.width;
+    const scaleY = displayH / patchedHd.height;
 
     // Target: fit region to 60% of smaller container dimension
     const targetZoom = Math.min(
@@ -147,9 +161,6 @@ export const WSIViewer = ({
 
   // Parse heatmap data for overlay
   const heatmapData = analysisData?.heatmap_data;
-  const tiles = heatmapData?.tiles ?? [];
-  const slideWidth = heatmapData?.width ?? 0;
-  const slideHeight = heatmapData?.height ?? 0;
   const tileSize = heatmapData?.tile_size ?? 224;
 
   // Parse region data for overlay
@@ -162,6 +173,42 @@ export const WSIViewer = ({
       confidence: typeof r.confidence === 'number' ? r.confidence : (r.score ?? 0) * 100,
       bbox: r.bbox as [number, number, number, number],
     }));
+
+  // Determine effective slide dimensions: prefer heatmap_data, fall back to image natural size
+  const slideWidth = (heatmapData?.width && heatmapData.width > 0) ? heatmapData.width : naturalSize.width;
+  const slideHeight = (heatmapData?.height && heatmapData.height > 0) ? heatmapData.height : naturalSize.height;
+
+  // Build effective tile list:
+  // If the backend returns real tiles, use them.
+  // If tiles is empty but we have regions with bboxes, synthesize tiles from regions as a fallback
+  // so the heatmap still shows the probability hot-spots.
+  const backendTiles: any[] = heatmapData?.tiles ?? [];
+  const effectiveTiles = (() => {
+    if (backendTiles.length > 0) return backendTiles;
+    if (!regions.length || !slideWidth || !slideHeight) return [];
+
+    // Synthesize tiles by filling each region bbox with a grid of tileSize squares
+    const synthetic: any[] = [];
+    for (const region of regions) {
+      const [x1, y1, x2, y2] = region.bbox;
+      const conf = region.confidence / 100; // back to 0-1
+      // Use a single tile per region centered in its bbox (fast, avoids too many tiles)
+      // Actually fill bbox with tiles so the heat appears across the whole region
+      const cols = Math.max(1, Math.ceil((x2 - x1) / tileSize));
+      const rows = Math.max(1, Math.ceil((y2 - y1) / tileSize));
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          synthetic.push({
+            x: x1 + col * tileSize,
+            y: y1 + row * tileSize,
+            confidence: conf,
+            is_tumor: conf > 0.5,
+          });
+        }
+      }
+    }
+    return synthetic;
+  })();
 
   return (
     <div className="relative w-full h-full flex flex-col rounded-2xl overflow-hidden border border-border/60 bg-card shadow-soft">
@@ -329,6 +376,7 @@ export const WSIViewer = ({
 
               {/* Main Image — fills the entire panning area */}
               <img
+                ref={imageRef}
                 src={imageUrl}
                 alt="Pathology tissue slide"
                 className={cn(
@@ -344,11 +392,11 @@ export const WSIViewer = ({
               {/* ── NEW: Canvas Heatmap Overlay ── */}
               {!imageLoading && (
                 <HeatmapOverlay
-                  tiles={tiles}
+                  tiles={effectiveTiles}
                   tileSize={tileSize}
                   slideWidth={slideWidth}
                   slideHeight={slideHeight}
-                  show={showHeatmap && tiles.length > 0}
+                  show={showHeatmap && effectiveTiles.length > 0}
                   zoom={zoom}
                   panX={position.x}
                   panY={position.y}
