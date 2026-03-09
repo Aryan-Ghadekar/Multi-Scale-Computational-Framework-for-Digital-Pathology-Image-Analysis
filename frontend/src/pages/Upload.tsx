@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Microscope, Upload, FileImage, ArrowRight, User, Plus,
-  Cpu, Shield, ChartBar, CheckCircle2, X, CloudUpload
+  Cpu, Shield, BarChart2, CheckCircle2, X, CloudUpload
 } from "lucide-react";
 import { toast } from "sonner";
 import { patientApi } from "@/services/api";
@@ -105,7 +105,7 @@ const UploadPage = () => {
       description: "Validated confidence scoring with explainable AI insights"
     },
     {
-      icon: <ChartBar className="h-5 w-5" />,
+      icon: <BarChart2 className="h-5 w-5" />,
       title: "WSI Processing",
       description: "Up to 300M × 300M pixel whole slide image analysis"
     },

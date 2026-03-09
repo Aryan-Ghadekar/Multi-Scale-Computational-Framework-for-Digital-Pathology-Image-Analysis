@@ -1,23 +1,18 @@
-import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  User,
-  Calendar,
-  FileText,
-  Activity,
-  Download,
-  TrendingUp,
-  MessageSquare,
-  Brain,
+  User, Calendar, FileText, Activity, Download,
+  TrendingUp, MessageSquare, Brain, Hash, Send,
+  CheckCircle2, Sparkles, Phone
 } from "lucide-react";
 import { ExplainabilityPanel } from "./ExplainabilityPanel";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { reportApi } from "@/services/api";
 import { useState } from "react";
-import {onRegenerateExplanation} from "@/components/ExplainabilityPanel";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { cn } from "@/lib/utils";
 
 interface PatientSidebarProps {
   patientData?: any;
@@ -25,17 +20,16 @@ interface PatientSidebarProps {
   onRequestNewExplanation?: (question?: string) => void;
 }
 
-export const PatientSidebar = ({ 
-  patientData, 
+export const PatientSidebar = ({
+  patientData,
   analysisData,
-  onRequestNewExplanation 
+  onRequestNewExplanation
 }: PatientSidebarProps) => {
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
 
   const handleAskQuestion = async () => {
     if (!question.trim() || !onRequestNewExplanation) return;
-    
     setIsAsking(true);
     try {
       await onRequestNewExplanation(question.trim());
@@ -53,29 +47,20 @@ export const PatientSidebar = ({
       toast.error("No analysis data available");
       return;
     }
-
     try {
       toast.loading("Generating clinical report...");
-      
-      // Create report data
       const reportData = {
         case_id: analysisData.case_id,
         patient_id: analysisData.patient_id,
         analysis_id: analysisData.id
       };
-
-      // Create the report
       const report = await reportApi.create(reportData);
-      
       toast.dismiss();
       toast.success("Report generated successfully!");
-      
-      // Download the report
       setTimeout(() => {
         reportApi.download(report.id);
         toast.info("Report download started");
       }, 1000);
-
     } catch (error) {
       toast.dismiss();
       toast.error("Failed to generate report");
@@ -88,8 +73,6 @@ export const PatientSidebar = ({
       toast.error("No analysis data available");
       return;
     }
-
-    // For demo purposes - create a simple client-side PDF
     const blob = new Blob([
       `Pathology Analysis Report\n
 Patient: ${patientData?.name || 'N/A'}
@@ -100,18 +83,15 @@ Overall Confidence: ${analysisData.overall_confidence}%
 Confidence Level: ${analysisData.confidence_level}\n
 Generated: ${new Date().toLocaleString()}
       `], { type: 'text/plain' });
-    
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = `pathology_report_${analysisData.case_id}.txt`;
     link.click();
     URL.revokeObjectURL(url);
-    
     toast.success("Quick report downloaded!");
   };
 
-  // Common questions suggestions
   const commonQuestions = [
     "What are the clinical implications of these findings?",
     "How reliable are these lesion probability scores?",
@@ -119,365 +99,340 @@ Generated: ${new Date().toLocaleString()}
     "How does this compare to normal tissue patterns?",
   ];
 
-  const handleQuickQuestion = (quickQuestion: string) => {
-    setQuestion(quickQuestion);
+  // Build chart data from regions
+  const chartData = analysisData?.regions?.map((r: any, i: number) => ({
+    name: r.name ? r.name.substring(0, 8) : `R${i + 1}`,
+    confidence: r.confidence || Math.round((r.score || 0.5) * 100),
+  })) || [];
+
+  const getBarColor = (confidence: number) => {
+    if (confidence >= 75) return "hsl(158 64% 42%)";
+    if (confidence >= 50) return "hsl(38 95% 52%)";
+    return "hsl(4 86% 58%)";
   };
 
-  return (
-    <div className="w-full h-full flex flex-col gap-4 overflow-y-auto p-4 bg-background">
-      {/* Patient Metadata */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-foreground">Patient Information</h3>
-          </div>
-          <Badge variant="outline" className="border-primary text-primary">
-            Active
-          </Badge>
-        </div>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Case ID:</span>
-            <span className="font-medium text-foreground">
-              {analysisData?.case_id || "PT-2024-1847"}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Age:</span>
-            <span className="font-medium text-foreground">
-              {patientData?.age || "62"} years
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Name:</span>
-            <span className="font-medium text-foreground">
-              {patientData?.name || "Patient Name"}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Date Uploaded:</span>
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-muted-foreground" />
-              <span className="font-medium text-foreground">Jan 15, 2025</span>
-            </div>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Status:</span>
-            <Badge className="bg-warning text-warning-foreground">
-              {analysisData ? "Analysis Complete" : "Under Review"}
-            </Badge>
-          </div>
-        </div>
+  // Patient initials
+  const initials = patientData?.name
+    ? patientData.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'PT';
 
-        {/* AI Question Section - Integrated into Patient Metadata Card */}
-        {analysisData && onRequestNewExplanation && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center gap-2 mb-3">
-              <Brain className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-medium text-foreground">
-                Ask AI Assistant
-              </h4>
+  return (
+    <ScrollArea className="h-full">
+      <div className="flex flex-col gap-3 p-4">
+        {/* ── Patient Info Card ── */}
+        <div className="glass-card rounded-2xl p-4 shadow-soft border border-border">
+          <div className="flex items-start gap-3 mb-4">
+            {/* Avatar */}
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-soft font-bold text-sm text-white"
+              style={{ background: 'linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))' }}
+            >
+              {initials}
             </div>
-            <div className="space-y-3">
-              <textarea
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask about specific findings, clinical implications, or differential diagnoses..."
-                className="w-full p-3 text-sm border border-input rounded-md min-h-[100px] resize-none bg-card/50 focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-                disabled={isAsking}
-              />
-              
-              {/* Quick Questions */}
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Quick questions:</p>
-                <div className="flex flex-wrap gap-2">
-                  {commonQuestions.map((q, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuickQuestion(q)}
-                      className="text-xs h-7 px-2 py-1"
-                      disabled={isAsking}
-                    >
-                      {q.split(" ").slice(0, 3).join(" ")}...
-                    </Button>
-                  ))}
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm text-foreground truncate">
+                {patientData?.name || "Patient Name"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {patientData?.age ? `${patientData.age} years` : 'Age unknown'} · {patientData?.gender || 'Unknown'}
+              </p>
+            </div>
+            {/* Status badge */}
+            <div className={cn(
+              "status-pill border text-[10px] flex-shrink-0",
+              analysisData
+                ? "bg-success/10 border-success/30 text-success"
+                : "bg-warning/10 border-warning/30 text-warning"
+            )}>
+              <span className={cn("status-dot", analysisData ? "bg-success" : "bg-warning")} />
+              {analysisData ? "Complete" : "Pending"}
+            </div>
+          </div>
+
+          {/* Info rows */}
+          <div className="space-y-2 text-xs">
+            {[
+              { icon: Hash, label: "Case ID", value: analysisData?.case_id || "—" },
+              { icon: Calendar, label: "Date", value: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+              { icon: Phone, label: "Contact", value: patientData?.contact_info || "—" },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="flex items-center gap-2.5 py-1.5 border-b border-border/50 last:border-0">
+                <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="text-muted-foreground w-14 flex-shrink-0">{label}</span>
+                <span className="font-semibold text-foreground truncate font-mono text-[11px]">{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* AI Question section */}
+          {analysisData && onRequestNewExplanation && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-5 h-5 rounded-md flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))' }}
+                >
+                  <Sparkles className="h-3 w-3 text-white" />
                 </div>
+                <h4 className="text-xs font-bold text-foreground">Ask AI Assistant</h4>
+                <span className="text-[10px] text-muted-foreground">· Groq LLaMA</span>
               </div>
 
-              <div className="flex gap-2">
-                <Button
+              {/* Quick question chips */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {commonQuestions.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setQuestion(q)}
+                    className="quick-chip"
+                    disabled={isAsking}
+                  >
+                    {q.split(" ").slice(0, 3).join(" ")}…
+                  </button>
+                ))}
+              </div>
+
+              {/* Textarea + send */}
+              <div className="relative">
+                <textarea
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && question.trim()) {
+                      e.preventDefault();
+                      handleAskQuestion();
+                    }
+                  }}
+                  placeholder="Ask about clinical implications, reliability, follow-up tests..."
+                  className="w-full p-3 pr-10 text-xs border border-input rounded-xl min-h-[80px] resize-none bg-background/60 focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all outline-none placeholder:text-muted-foreground/60 scrollbar-thin"
+                  disabled={isAsking}
+                />
+                <button
                   onClick={handleAskQuestion}
                   disabled={!question.trim() || isAsking}
-                  className="flex-1 text-sm py-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  size="sm"
+                  className="absolute right-2.5 bottom-2.5 w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30"
+                  style={{
+                    background: question.trim() && !isAsking
+                      ? 'linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))'
+                      : 'hsl(var(--muted))'
+                  }}
                 >
                   {isAsking ? (
-                    <>
-                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent mr-2" />
-                      Asking AI...
-                    </>
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent animate-spin rounded-full" />
                   ) : (
-                    <>
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Ask Question
-                    </>
+                    <Send className="h-3.5 w-3.5 text-white" />
                   )}
-                </Button>
-                <Button
-                  onClick={() => onRequestNewExplanation()}
-                  disabled={isAsking}
-                  variant="outline"
-                  className="text-sm py-2 border border-input hover:bg-muted disabled:opacity-50 transition-colors"
-                  size="sm"
-                >
-                  <Brain className="h-4 w-4 mr-2" />
-                  Regenerate
-                </Button>
+                </button>
               </div>
-              
-              <p className="text-xs text-muted-foreground text-center">
-                AI will provide clinical insights based on analysis results
+              <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+                Press Enter or click send · AI provides clinical insights from analysis
               </p>
             </div>
-          </div>
-        )}
-      </Card>
+          )}
+        </div>
 
-      {/* Tabs Section */}
-      <Tabs defaultValue="lesion" className="flex-1">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="lesion" className="text-xs">
-            <Activity className="h-3 w-3 mr-1" />
-            Analysis
-          </TabsTrigger>
-          <TabsTrigger value="uncertainty" className="text-xs">
-            <TrendingUp className="h-3 w-3 mr-1" />
-            Insights
-          </TabsTrigger>
-          <TabsTrigger value="report" className="text-xs">
-            <FileText className="h-3 w-3 mr-1" />
-            Report
-          </TabsTrigger>
-        </TabsList>
+        {/* ── Tabs ── */}
+        <Tabs defaultValue="analysis" className="flex-1">
+          <TabsList className="grid w-full grid-cols-3 rounded-xl h-9 bg-muted/60">
+            <TabsTrigger value="analysis" className="text-[11px] rounded-lg gap-1">
+              <Activity className="h-3 w-3" />
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="text-[11px] rounded-lg gap-1">
+              <TrendingUp className="h-3 w-3" />
+              Insights
+            </TabsTrigger>
+            <TabsTrigger value="report" className="text-[11px] rounded-lg gap-1">
+              <FileText className="h-3 w-3" />
+              Report
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="lesion" className="space-y-4">
-          <ExplainabilityPanel 
-            analysisData={analysisData}
-            // onRegenerateExplanation={onRequestNewExplanation ? 
-            //   () => onRequestNewExplanation() : undefined
-            // }
-          />
-        </TabsContent>
+          {/* ── Analysis Tab ── */}
+          <TabsContent value="analysis" className="mt-3 space-y-0">
+            <ExplainabilityPanel
+              analysisData={analysisData}
+            />
+          </TabsContent>
 
-        <TabsContent value="uncertainty" className="space-y-4">
-          <Card className="p-6 shadow-medium space-y-6">
-            <div className="flex items-center gap-2 pb-4 border-b border-panel-border">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">
-                Uncertainty Insights
-              </h3>
-            </div>
+          {/* ── Insights Tab ── */}
+          <TabsContent value="insights" className="mt-3 space-y-4">
+            {/* Overall confidence */}
+            <div className="glass-card rounded-2xl p-4 shadow-soft">
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Analysis Insights</h3>
+              </div>
 
-            {/* Overall Confidence */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-foreground">
-                  Overall Model Confidence
-                </span>
-                <span className="text-2xl font-bold text-warning">
-                  {analysisData?.overall_confidence || 73}%
+              <div className="flex justify-between items-baseline mb-2">
+                <span className="text-xs text-muted-foreground font-medium">Overall Model Confidence</span>
+                <span className="text-2xl font-extrabold text-foreground">
+                  {analysisData?.overall_confidence || 0}
+                  <span className="text-sm font-medium text-muted-foreground">%</span>
                 </span>
               </div>
-              <Progress 
-                value={analysisData?.overall_confidence || 73} 
-                className="h-3 [&>div]:bg-warning" 
-              />
-              <p className="text-xs text-muted-foreground">
-                {analysisData?.confidence_level === "Moderate" 
-                  ? "Moderate confidence - manual review recommended" 
-                  : analysisData?.ai_explanation?.split('\n')[0] || "Analysis insights will appear here"}
+              <div className="h-2 bg-muted/60 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full rounded-full transition-all duration-1000"
+                  style={{
+                    width: `${analysisData?.overall_confidence || 0}%`,
+                    background: (analysisData?.overall_confidence || 0) >= 75
+                      ? 'hsl(158 64% 42%)' : (analysisData?.overall_confidence || 0) >= 50
+                        ? 'hsl(38 95% 52%)' : 'hsl(4 86% 58%)'
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {analysisData?.confidence_level === "Moderate"
+                  ? "Moderate confidence — manual review recommended"
+                  : analysisData?.ai_explanation?.split('\n')[0] || "No analysis data available"}
               </p>
             </div>
 
-            {/* Confidence Breakdown */}
-            {analysisData?.regions && (
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium text-foreground">
-                  Confidence by Region
+            {/* Region confidence chart */}
+            {chartData.length > 0 && (
+              <div className="glass-card rounded-2xl p-4 shadow-soft">
+                <h4 className="text-xs font-bold text-foreground mb-3 uppercase tracking-wide">
+                  Region Confidence Distribution
                 </h4>
-                <div className="space-y-3">
-                  {analysisData.regions.map((region: any) => (
-                    <div key={region.id} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">{region.name}</span>
-                        <span className="font-medium text-foreground">
-                          {region.confidence}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={region.confidence}
-                        className={`h-2 [&>div]:bg-${
-                          region.confidence >= 75 ? "success" : 
-                          region.confidence >= 50 ? "warning" : "destructive"
-                        }`}
-                      />
-                    </div>
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={150}>
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
+                      axisLine={false}
+                      tickLine={false}
+                      domain={[0, 100]}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        boxShadow: 'var(--shadow-medium)'
+                      }}
+                      formatter={(v: any) => [`${v}%`, 'Confidence']}
+                    />
+                    <Bar dataKey="confidence" radius={[4, 4, 0, 0]}>
+                      {chartData.map((_: any, i: number) => (
+                        <Cell key={i} fill={getBarColor(chartData[i].confidence)} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
 
-            {/* AI Insights Summary */}
-            {analysisData?.ai_explanation && (
-              <div className="p-4 bg-accent/20 rounded-lg space-y-3">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-accent-foreground" />
-                  <h4 className="text-sm font-medium text-accent-foreground">
-                    AI Clinical Summary
-                  </h4>
-                </div>
-                <div className="space-y-2">
-                  {analysisData.ai_explanation
-                    .split('\n')
-                    .filter(line => line.trim().length > 0)
-                    .slice(0, 3) // Show first 3 lines as summary
-                    .map((line: string, index: number) => (
-                      <p key={index} className="text-xs text-foreground/80 leading-relaxed">
-                        {line.trim()}
-                      </p>
-                    ))
-                  }
-                  {analysisData.ai_explanation.split('\n').length > 3 && (
-                    <p className="text-xs text-muted-foreground italic">
-                      ...full analysis available in AI Assistant section
-                    </p>
-                  )}
-                </div>
+            {/* Metrics grid */}
+            {analysisData?.metrics && (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Tiles Analyzed", value: analysisData.metrics.total_tiles_analyzed || 0 },
+                  { label: "Tumor Tiles", value: analysisData.metrics.tumor_tiles_detected || 0 },
+                  { label: "Lesion Prob.", value: `${analysisData.lesion_probability || 0}%` },
+                  { label: "Confidence", value: analysisData.confidence_level || "—" },
+                ].map((m, i) => (
+                  <div key={i} className="glass-card rounded-xl p-3 text-center border border-border">
+                    <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wide">{m.label}</p>
+                    <p className="text-base font-bold text-foreground">{m.value}</p>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Ask AI Button */}
-            {analysisData && onRequestNewExplanation && (
-              <div className="pt-4 border-t border-border">
-                <Button
-                  onClick={() => onRequestNewExplanation()}
-                  variant="outline"
-                  className="w-full text-sm"
-                  size="sm"
-                >
-                  <Brain className="h-4 w-4 mr-2" />
-                  Get Detailed AI Analysis
-                </Button>
+            {!analysisData && (
+              <div className="text-center py-8">
+                <TrendingUp className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No insights yet</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Run analysis to see metrics</p>
               </div>
             )}
-          </Card>
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="report" className="space-y-4">
-          <Card className="p-6 shadow-medium space-y-6">
-            <div className="flex items-center gap-2 pb-4 border-b border-panel-border">
-              <FileText className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Case Report</h3>
-            </div>
+          {/* ── Report Tab ── */}
+          <TabsContent value="report" className="mt-3 space-y-4">
+            <div className="glass-card rounded-2xl p-4 shadow-soft">
+              <div className="flex items-center gap-2 pb-3 mb-3 border-b border-border">
+                <FileText className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Clinical Report</h3>
+              </div>
 
-            <div className="space-y-4">
-              <div className="p-4 bg-accent/10 border border-accent/30 rounded-lg space-y-2">
-                <h4 className="text-sm font-semibold text-accent-foreground">
-                  Report Summary
-                </h4>
-                <p className="text-xs text-foreground/80 leading-relaxed">
-                  {analysisData 
-                    ? `This clinical report includes comprehensive lesion analysis for ${patientData?.name || 'the patient'}. AI model analysis completed with ${analysisData.confidence_level.toLowerCase()} confidence.`
+              {/* Summary preview */}
+              <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 mb-4">
+                <p className="text-xs font-semibold text-foreground mb-1">Report Summary</p>
+                <p className="text-xs text-foreground/70 leading-relaxed">
+                  {analysisData
+                    ? `Comprehensive lesion analysis for ${patientData?.name || 'patient'}. AI model analysis completed with ${analysisData.confidence_level?.toLowerCase()} confidence using ResNet18 + MobileNet ensemble.`
                     : "Upload and analyze an image to generate a comprehensive clinical report."
                   }
                 </p>
               </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-success" />
-                  <span className="text-muted-foreground">
-                    Patient metadata included
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-success" />
-                  <span className="text-muted-foreground">
-                    Lesion probability & confidence scores
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-success" />
-                  <span className="text-muted-foreground">
-                    Regional analysis details
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-success" />
-                  <span className="text-muted-foreground">
-                    AI insights and recommendations
-                  </span>
-                </div>
+              {/* Included items */}
+              <div className="space-y-2 mb-4">
+                {[
+                  "Patient metadata & demographics",
+                  "Lesion probability & confidence scores",
+                  "Regional analysis with bounding boxes",
+                  "AI insights and clinical recommendations",
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <CheckCircle2 className={cn("h-3.5 w-3.5 flex-shrink-0", analysisData ? "text-success" : "text-muted-foreground/40")} />
+                    <span className={analysisData ? "text-foreground/80" : "text-muted-foreground/50"}>{item}</span>
+                  </div>
+                ))}
               </div>
 
-              <div className="flex gap-2">
+              {/* Action buttons */}
+              <div className="space-y-2">
                 <Button
                   onClick={handleGenerateReport}
-                  className="flex-1 shadow-soft"
-                  size="lg"
+                  className="w-full h-10 font-semibold transition-all hover:shadow-glow hover:scale-[1.01]"
+                  style={{ background: 'linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))' }}
                   disabled={!analysisData}
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Generate Full PDF Report
                 </Button>
-
                 <Button
                   onClick={handleQuickDownload}
                   variant="outline"
-                  size="lg"
+                  className="w-full h-9 text-sm hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
                   disabled={!analysisData}
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Quick Report
+                  <FileText className="h-3.5 w-3.5 mr-2" />
+                  Quick Text Report
                 </Button>
-              </div>
 
-              {/* AI Enhanced Report Option */}
-              {analysisData && onRequestNewExplanation && (
-                <div className="pt-4 border-t border-border">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Want AI-enhanced report with detailed clinical insights?
-                  </p>
+                {analysisData && onRequestNewExplanation && (
                   <Button
                     onClick={() => {
                       toast.info("AI is enhancing your report...");
-                      setTimeout(() => {
-                        handleGenerateReport();
-                      }, 1500);
+                      setTimeout(() => handleGenerateReport(), 1500);
                     }}
                     variant="ghost"
-                    className="w-full text-sm border border-primary/30 hover:bg-primary/10"
-                    size="sm"
+                    className="w-full h-9 text-xs border border-primary/25 hover:bg-primary/10 hover:border-primary/50 transition-all"
                   >
-                    <Brain className="h-4 w-4 mr-2 text-primary" />
+                    <Brain className="h-3.5 w-3.5 mr-2 text-primary" />
                     Generate AI-Enhanced Report
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                {analysisData 
-                  ? "Full report will be generated as a clinician-ready PDF document"
+              <p className="text-[10px] text-muted-foreground text-center mt-3">
+                {analysisData
+                  ? "Full report exported as clinician-ready PDF document"
                   : "Complete analysis to enable report generation"
                 }
               </p>
             </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </ScrollArea>
   );
 };
