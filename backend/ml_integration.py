@@ -146,10 +146,10 @@ class PathMLService:
             gray = np.mean(thumb_np, axis=2)
             thresh = filters.threshold_otsu(gray)
             mask_coords = np.argwhere(gray < thresh)
-            random.shuffle(mask_coords)
+            np.random.shuffle(mask_coords)
             
-            scale_x = w / self.low_res_scale
-            scale_y = h / self.low_res_scale
+            scale_x = w / thumb.width
+            scale_y = h / thumb.height
             
             # Analyze tiles
             tile_results = []
