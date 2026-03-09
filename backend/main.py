@@ -22,6 +22,7 @@ from service.report_service import ReportService
 from service.ai_service import AIService
 
 from service.tif_to_png_service import convert_tif_to_png
+from supabase_client import SupabaseClient
 
 
 # Create tables
@@ -39,6 +40,16 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        # Simple query to check connection
+        response = SupabaseClient.table("patients").select("*").limit(1).execute()
+        print("✅ Supabase connected successfully! Sample patient:", response.data)
+    except Exception as e:
+        print("❌ Supabase connection failed:", e)
 
 # CORS middleware
 app.add_middleware(
