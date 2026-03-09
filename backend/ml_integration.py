@@ -14,21 +14,45 @@ import openslide
 from datetime import datetime
 
 class PathMLService:
+    # def __init__(self):
+    #     self.device = "cuda" if torch.cuda.is_available() else "cpu"
+    #     self.tile_size = 224
+    #     self.tissue_threshold = 0.3
+    #     self.low_res_scale = 2048
+    #     self.model_path = "resnet18.ckpt"  # Update path as needed
+    #     self.model = self._load_model()
+    #     self.transform = self._get_transform()
+        
+    #     # Stain matrix for H&E decomposition
+    #     self.stain_matrix = np.array([
+    #         [0.644, 0.0326],
+    #         [0.710, 0.873],
+    #         [0.285, 0.488]
+    #     ])
+
+    ##############################################################
+    ######################Just for checking#######################
+    ############if you have model comment it out##################
+    ##############################################################
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tile_size = 224
         self.tissue_threshold = 0.3
         self.low_res_scale = 2048
-        self.model_path = "resnet18.ckpt"  # Update path as needed
-        self.model = self._load_model()
         self.transform = self._get_transform()
         
-        # Stain matrix for H&E decomposition
         self.stain_matrix = np.array([
             [0.644, 0.0326],
             [0.710, 0.873],
             [0.285, 0.488]
         ])
+        
+        # : safely try to load model, else keep None
+        try:
+            self.model = self._load_model()
+        except Exception as e:
+            print(f"⚠ Warning: Model not loaded, running in dummy mode. Details: {e}")
+            self.model = None
 
     def _load_model(self):
         """Load the trained tumor classification model"""
