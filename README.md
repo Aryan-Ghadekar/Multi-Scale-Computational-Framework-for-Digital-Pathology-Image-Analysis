@@ -9,7 +9,7 @@
 
 A comprehensive AI-powered digital pathology platform that analyzes whole slide images (WSI) - [3,00,00,00,000 x 3,00,00,00,000 pixels] using deep learning models to detect tumor regions, generate confidence heatmaps, and provide explainable clinical insights for healthcare professionals.
 
-**Developed by Team PathFinders for Fusion SKNCOE Hackathon**
+
 
 ---
 
