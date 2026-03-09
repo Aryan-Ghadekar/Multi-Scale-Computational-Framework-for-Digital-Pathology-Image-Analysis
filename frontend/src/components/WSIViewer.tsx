@@ -344,14 +344,32 @@ export const WSIViewer = ({
           onMouseLeave={handleMouseUp}
         >
           {imageUrl ? (
-            <div
-              className="relative w-full h-full"
-              style={{
-                transform: `scale(${zoom}) translate(${position.x / zoom}px, ${position.y / zoom}px)`,
-                transition: isDragging ? 'none' : 'transform 0.15s ease',
-                transformOrigin: 'center center'
-              }}
-            >
+            <>
+              {/* Transformed Image Layer */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  transform: `scale(${zoom}) translate(${position.x / zoom}px, ${position.y / zoom}px)`,
+                  transition: isDragging ? 'none' : 'transform 0.15s ease',
+                  transformOrigin: 'center center'
+                }}
+              >
+                {/* Main Image — fills the entire panning area */}
+                <img
+                  ref={imageRef}
+                  src={imageUrl}
+                  alt="Pathology tissue slide"
+                  className={cn(
+                    "w-full h-full object-contain transition-opacity duration-500 pointer-events-auto select-none",
+                    showHeatmap && analysisData ? "opacity-40" : "opacity-100",
+                    imageLoading ? "opacity-0" : ""
+                  )}
+                  draggable={false}
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
+                />
+              </div>
+
               {/* Error banner */}
               {imageError && (
                 <Alert variant="destructive" className="absolute top-3 left-3 right-3 z-20 shadow-medium">
@@ -374,22 +392,7 @@ export const WSIViewer = ({
                 </div>
               )}
 
-              {/* Main Image — fills the entire panning area */}
-              <img
-                ref={imageRef}
-                src={imageUrl}
-                alt="Pathology tissue slide"
-                className={cn(
-                  "w-full h-full object-contain transition-opacity duration-500 select-none",
-                  showHeatmap && analysisData ? "opacity-40" : "opacity-100",
-                  imageLoading ? "opacity-0" : ""
-                )}
-                draggable={false}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-              />
-
-              {/* ── NEW: Canvas Heatmap Overlay ── */}
+              {/* ── Canvas Heatmap Overlay ── */}
               {!imageLoading && (
                 <HeatmapOverlay
                   tiles={effectiveTiles}
@@ -405,7 +408,7 @@ export const WSIViewer = ({
                 />
               )}
 
-              {/* ── NEW: Region Bounding Box Overlay ── */}
+              {/* ── Region Bounding Box Overlay ── */}
               {!imageLoading && regions.length > 0 && (
                 <RegionOverlay
                   regions={regions}
@@ -423,22 +426,22 @@ export const WSIViewer = ({
 
               {/* Heatmap mode badge */}
               {showHeatmap && analysisData && (
-                <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground px-2.5 py-1 rounded-lg text-[10px] font-bold z-10 shadow-lg uppercase tracking-widest">
+                <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground px-2.5 py-1 rounded-lg text-[10px] font-bold z-10 shadow-lg uppercase tracking-widest pointer-events-none">
                   Heatmap Mode
                 </div>
               )}
 
               {/* Analysis running placeholder */}
               {!analysisData && !imageLoading && (
-                <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
-                  <div className="text-center space-y-3 glass-card p-6 rounded-2xl">
+                <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 pointer-events-none">
+                  <div className="text-center space-y-3 glass-card p-6 rounded-2xl pointer-events-auto">
                     <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
                     <p className="text-sm font-semibold text-foreground">Running AI Analysis</p>
                     <p className="text-xs text-muted-foreground">Processing tissue tiles...</p>
                   </div>
                 </div>
               )}
-            </div>
+            </>
           ) : (
             /* No image selected state */
             <div className="flex flex-col items-center justify-center gap-5 select-none">

@@ -206,7 +206,8 @@ async def analyze_image(
             "ai_analysis": {
                 "key_findings": ai_response.key_findings if 'ai_response' in locals() else [],
                 "recommendations": ai_response.recommendations if 'ai_response' in locals() else []
-            }
+            },
+            "heatmap_data": analysis_result.get("heatmap_data")
         }
         
         return JSONResponse(content=response_data)
@@ -287,7 +288,8 @@ def regenerate_explanation(
             "recommendations": ai_response.recommendations
         },
         "metrics": analysis_data.get("metrics", {}),
-        "raw_predictions": analysis_data.get("raw_predictions", {})
+        "raw_predictions": analysis_data.get("raw_predictions", {}),
+        "heatmap_data": analysis_data.get("heatmap_data")
     }
 
 # Report Routes
