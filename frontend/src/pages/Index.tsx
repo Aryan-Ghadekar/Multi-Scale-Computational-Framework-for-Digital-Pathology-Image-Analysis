@@ -4,7 +4,7 @@ import { WSIViewer } from "@/components/WSIViewer";
 import { ConfidenceDisplay } from "@/components/ConfidenceDisplay";
 import { ExplainabilityPanel } from "@/components/ExplainabilityPanel";
 import { PatientSidebar } from "@/components/PatientSidebar";
-import { Microscope } from "lucide-react";
+import { Microscope, Activity, Loader2 } from "lucide-react";
 import { analysisApi } from "@/services/api";
 import { toast } from "sonner";
 
@@ -18,10 +18,9 @@ const Index = () => {
 
   useEffect(() => {
     const { imageFile, patientData, patientId } = location.state || {};
-    
+
     if (imageFile) {
       setUploadedImage(imageFile);
-      // Start analysis automatically when image is provided
       handleAnalysis(patientId, imageFile);
     }
   }, [location]);
@@ -40,62 +39,50 @@ const Index = () => {
   };
 
   const handleRegenerateExplanation = async (analysisId: number, specificQuestion?: string) => {
-  if (!analysisId) {
-    toast.error("No analysis data available");
-    return;
-  }
-
-  setIsRegenerating(true);
-  try {
-    const result = await analysisApi.regenerateExplanation(analysisId, specificQuestion);
-    
-    // Merge the new explanation with existing analysis data
-    // This preserves image URLs and other important data
-    setAnalysisData(prev => {
-      // If this is the first time, just use the result
-      if (!prev) return result;
-      
-      // Otherwise, merge: keep all original data, update only AI explanation fields
-      return {
-        ...prev,  // Keep all existing data (image URLs, etc.)
-        ai_explanation: result.ai_explanation || prev.ai_explanation,
-        ai_analysis: {
-          key_findings: result.key_findings || prev.ai_analysis?.key_findings || [],
-          recommendations: result.recommendations || prev.ai_analysis?.recommendations || []
-        },
-        // Also update any other fields that might have changed
-        ...(result.regions && { regions: result.regions }),
-        ...(result.analysis_summary && { analysis_summary: result.analysis_summary })
-      };
-    });
-    
-    toast.success("AI explanation regenerated successfully");
-    return result;
-  } catch (error) {
-    toast.error("Failed to regenerate explanation");
-    throw error;
-  } finally {
-    setIsRegenerating(false);
-  }
-};
-
-
-   const handleExplainabilityRegeneration = async () => {
-      if (!analysisData?.id) return;
-      
-      try {
-        await handleRegenerateExplanation(analysisData.id);
-      } catch (error) {
-        console.error("Regeneration failed:", error);
-      }
-    };
-
-    // Function to get real regions from analysis data
-  const getRealRegions = () => {
-    if (!analysisData?.regions || !Array.isArray(analysisData.regions)) {
-      return [];
+    if (!analysisId) {
+      toast.error("No analysis data available");
+      return;
     }
-    
+
+    setIsRegenerating(true);
+    try {
+      const result = await analysisApi.regenerateExplanation(analysisId, specificQuestion);
+
+      setAnalysisData((prev: any) => {
+        if (!prev) return result;
+        return {
+          ...prev,
+          ai_explanation: result.ai_explanation || prev.ai_explanation,
+          ai_analysis: {
+            key_findings: result.key_findings || prev.ai_analysis?.key_findings || [],
+            recommendations: result.recommendations || prev.ai_analysis?.recommendations || []
+          },
+          ...(result.regions && { regions: result.regions }),
+          ...(result.analysis_summary && { analysis_summary: result.analysis_summary })
+        };
+      });
+
+      toast.success("AI explanation regenerated successfully");
+      return result;
+    } catch (error) {
+      toast.error("Failed to regenerate explanation");
+      throw error;
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleExplainabilityRegeneration = async () => {
+    if (!analysisData?.id) return;
+    try {
+      await handleRegenerateExplanation(analysisData.id);
+    } catch (error) {
+      console.error("Regeneration failed:", error);
+    }
+  };
+
+  const getRealRegions = () => {
+    if (!analysisData?.regions || !Array.isArray(analysisData.regions)) return [];
     return analysisData.regions.map((region: any, index: number) => ({
       id: region.id || `R${index + 1}`,
       name: region.name || region.description || `Region ${index + 1}`,
@@ -107,51 +94,71 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-card shadow-soft">
-        <div className="px-6 py-4 flex items-center justify-between">
+      {/* ── Header ── */}
+      <header className="border-b border-border bg-card/80 backdrop-blur-md shadow-soft sticky top-0 z-30">
+        <div className="px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground">
-              <Microscope className="h-6 w-6" />
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shadow-glow"
+              style={{ background: 'linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))' }}
+            >
+              <Microscope className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">PathAI Pro</h1>
-              <p className="text-xs text-muted-foreground">
-                Digital Pathology Analysis Platform
-              </p>
+              <h1 className="text-base font-bold text-foreground leading-none">PathAI Pro</h1>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Digital Pathology Analysis Platform</p>
             </div>
           </div>
-          {uploadedImage && (
-            <div className="text-sm text-muted-foreground">
-              {isAnalyzing ? (
-                "Analyzing..."
-              ) : analysisData ? (
-                <>
-                  Case: <span className="font-medium text-foreground">{analysisData.case_id}</span>
-                </>
-              ) : (
-                <>
-                  Analyzing: <span className="font-medium text-foreground">{uploadedImage.name}</span>
-                </>
-              )}
-            </div>
-          )}
+
+          {/* Live status */}
+          <div className="flex items-center gap-3">
+            {uploadedImage && (
+              <div className={`status-pill border ${isAnalyzing
+                ? 'bg-warning/10 border-warning/30 text-warning'
+                : analysisData
+                  ? 'bg-success/10 border-success/30 text-success'
+                  : 'bg-primary/10 border-primary/30 text-primary'
+                }`}>
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Analyzing</span>
+                  </>
+                ) : analysisData ? (
+                  <>
+                    <span className="status-dot bg-success" />
+                    <span>Analysis Complete</span>
+                  </>
+                ) : (
+                  <>
+                    <Activity className="h-3 w-3" />
+                    <span>Ready</span>
+                  </>
+                )}
+              </div>
+            )}
+            {analysisData && (
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border">
+                <span>Case:</span>
+                <span className="font-semibold text-foreground font-mono">{analysisData.case_id}</span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* ── Main Content ── */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main Workspace */}
-        <div className="flex-1 flex flex-col p-6 gap-4 overflow-hidden">
-          {/* Confidence Display */}
+        <div className="flex-1 flex flex-col p-4 gap-3 overflow-hidden min-w-0">
+          {/* Confidence metrics */}
           {analysisData && (
-            <div className="space-y-4">
-              <ConfidenceDisplay 
+            <div className="animate-slide-up">
+              <ConfidenceDisplay
                 lesionProbability={analysisData.lesion_probability}
                 overallConfidence={analysisData.overall_confidence}
+                regionsCount={analysisData.regions?.length || 0}
               />
-              
-              
             </div>
           )}
 
@@ -162,17 +169,17 @@ const Index = () => {
               onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
               uploadedImage={uploadedImage}
               analysisData={analysisData}
-              isLoading={isRegenerating}  // Add this line
+              isLoading={isRegenerating}
             />
           </div>
         </div>
 
         {/* Sidebar */}
-        <aside className="w-96 border-l border-border bg-card shadow-medium overflow-hidden">
-          <PatientSidebar 
+        <aside className="w-96 border-l border-border bg-card/60 backdrop-blur-sm shadow-medium overflow-hidden flex-shrink-0">
+          <PatientSidebar
             patientData={location.state?.patientData}
             analysisData={analysisData}
-            onRequestNewExplanation={(question?: string) => 
+            onRequestNewExplanation={(question?: string) =>
               analysisData?.id && handleRegenerateExplanation(analysisData.id, question)
             }
           />
