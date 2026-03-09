@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { WSIViewer } from "@/components/WSIViewer";
 import { ConfidenceDisplay } from "@/components/ConfidenceDisplay";
 import { ExplainabilityPanel } from "@/components/ExplainabilityPanel";
 import { PatientSidebar } from "@/components/PatientSidebar";
-import { Microscope, Activity, Loader2 } from "lucide-react";
+import { AnalysisMetricsPanel } from "@/components/AnalysisMetricsPanel";
+import { RegionSidebar } from "@/components/RegionSidebar";
+import type { Region } from "@/components/RegionOverlay";
+import { Microscope, Activity, Loader2, MapPin } from "lucide-react";
 import { analysisApi } from "@/services/api";
 import { toast } from "sonner";
 
@@ -14,6 +17,8 @@ const Index = () => {
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [activeRegionId, setActiveRegionId] = useState<string | undefined>(undefined);
+  const [jumpTarget, setJumpTarget] = useState<Region | null>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -92,6 +97,26 @@ const Index = () => {
     }));
   };
 
+  /** Derive Region[] objects (with bbox) for sidebar & overlay */
+  const overlayRegions: Region[] = (() => {
+    if (!analysisData?.regions || !Array.isArray(analysisData.regions)) return [];
+    return analysisData.regions
+      .filter((r: any) => Array.isArray(r.bbox) && r.bbox.length === 4)
+      .map((r: any, i: number) => ({
+        id: r.id ?? `R${i + 1}`,
+        name: r.name ?? `Region ${i + 1}`,
+        confidence: typeof r.confidence === 'number' ? r.confidence : (r.score ?? 0) * 100,
+        bbox: r.bbox as [number, number, number, number],
+      }));
+  })();
+
+  const handleJumpToRegion = useCallback((region: Region) => {
+    setActiveRegionId(region.id);
+    setJumpTarget(region);
+    // If heatmap isn't on yet, enable it for context
+    if (!showHeatmap) setShowHeatmap(true);
+  }, [showHeatmap]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* ── Header ── */}
@@ -151,7 +176,7 @@ const Index = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Main Workspace */}
         <div className="flex-1 flex flex-col p-4 gap-3 overflow-hidden min-w-0">
-          {/* Confidence metrics */}
+          {/* Existing: Confidence metrics */}
           {analysisData && (
             <div className="animate-slide-up">
               <ConfidenceDisplay
@@ -160,6 +185,11 @@ const Index = () => {
                 regionsCount={analysisData.regions?.length || 0}
               />
             </div>
+          )}
+
+          {/* NEW: Analysis Metrics Panel */}
+          {analysisData && (
+            <AnalysisMetricsPanel analysisData={analysisData} />
           )}
 
           {/* WSI Viewer */}
@@ -175,14 +205,33 @@ const Index = () => {
         </div>
 
         {/* Sidebar */}
-        <aside className="w-96 border-l border-border bg-card/60 backdrop-blur-sm shadow-medium overflow-hidden flex-shrink-0">
-          <PatientSidebar
-            patientData={location.state?.patientData}
-            analysisData={analysisData}
-            onRequestNewExplanation={(question?: string) =>
-              analysisData?.id && handleRegenerateExplanation(analysisData.id, question)
-            }
-          />
+        <aside className="w-96 border-l border-border bg-card/60 backdrop-blur-sm shadow-medium overflow-hidden flex-shrink-0 flex flex-col">
+
+          {/* NEW: Region Navigation Sidebar (only when analysis has bbox regions) */}
+          {analysisData && overlayRegions.length > 0 && (
+            <div className="border-b border-border/60 flex-shrink-0">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/40 bg-card">
+                <MapPin className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wide">Tumor Regions</span>
+              </div>
+              <RegionSidebar
+                regions={overlayRegions}
+                onJumpToRegion={handleJumpToRegion}
+                activeRegionId={activeRegionId}
+              />
+            </div>
+          )}
+
+          {/* Existing: PatientSidebar */}
+          <div className="flex-1 overflow-hidden">
+            <PatientSidebar
+              patientData={location.state?.patientData}
+              analysisData={analysisData}
+              onRequestNewExplanation={(question?: string) =>
+                analysisData?.id && handleRegenerateExplanation(analysisData.id, question)
+              }
+            />
+          </div>
         </aside>
       </div>
     </div>

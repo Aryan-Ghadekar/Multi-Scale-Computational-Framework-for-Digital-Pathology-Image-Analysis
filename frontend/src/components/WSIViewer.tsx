@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ZoomIn, ZoomOut, Maximize2, FileImage, AlertCircle, Layers, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { HeatmapOverlay } from "./HeatmapOverlay";
+import { RegionOverlay, type Region } from "./RegionOverlay";
+import { HeatmapLegend } from "./HeatmapLegend";
 
 interface WSIViewerProps {
   showHeatmap: boolean;
@@ -10,11 +13,22 @@ interface WSIViewerProps {
   uploadedImage?: File | null;
   analysisData?: any;
   isLoading?: boolean;
+  /** Called whenever zoom or pan changes (for external overlay sync) */
+  onViewStateChange?: (zoom: number, panX: number, panY: number) => void;
+  /** When called, viewer zooms to frame the given bbox [x1,y1,x2,y2] in slide coords */
+  onJumpToRegion?: (region: Region) => void;
 }
 
 const BACKEND_URL = "http://localhost:8000";
 
-export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysisData, isLoading = false }: WSIViewerProps) => {
+export const WSIViewer = ({
+  showHeatmap,
+  onToggleHeatmap,
+  uploadedImage,
+  analysisData,
+  isLoading = false,
+  onViewStateChange,
+}: WSIViewerProps) => {
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -22,6 +36,28 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
   const [imageUrl, setImageUrl] = useState<string>("");
   const [imageError, setImageError] = useState<boolean>(false);
   const [imageLoading, setImageLoading] = useState<boolean>(true);
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Measure container size for overlay calculations
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      setContainerSize({ width, height });
+    });
+    ro.observe(el);
+    // Initial read
+    setContainerSize({ width: el.clientWidth, height: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
+  // Propagate view state to parent whenever it changes
+  useEffect(() => {
+    onViewStateChange?.(zoom, position.x, position.y);
+  }, [zoom, position.x, position.y, onViewStateChange]);
 
   useEffect(() => {
     setImageError(false);
@@ -57,6 +93,75 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
 
   const handleImageLoad = () => { setImageLoading(false); setImageError(false); };
   const handleImageError = () => { setImageError(true); setImageLoading(false); };
+
+  /** Jump viewer to show a given region by computing the needed zoom & pan */
+  const jumpToRegion = useCallback((region: Region) => {
+    const hd = analysisData?.heatmap_data;
+    if (!hd?.width || !hd?.height) return;
+    const [x1, y1, x2, y2] = region.bbox;
+
+    // Compute target zoom to fit this region at ~60% of viewport
+    const regionW = x2 - x1;
+    const regionH = y2 - y1;
+    if (regionW <= 0 || regionH <= 0) return;
+
+    const imageAspect = hd.width / hd.height;
+    const containerAspect = containerSize.width / containerSize.height;
+    let displayW: number, displayH: number;
+    if (imageAspect > containerAspect) {
+      displayW = containerSize.width;
+      displayH = containerSize.width / imageAspect;
+    } else {
+      displayH = containerSize.height;
+      displayW = containerSize.height * imageAspect;
+    }
+
+    const scaleX = displayW / hd.width;
+    const scaleY = displayH / hd.height;
+
+    // Target: fit region to 60% of smaller container dimension
+    const targetZoom = Math.min(
+      Math.max((containerSize.width * 0.6) / (regionW * scaleX), 0.5),
+      3
+    );
+
+    // Region center in slide → display coords (unzoomed)
+    const imgBaseX = (containerSize.width - displayW) / 2;
+    const imgBaseY = (containerSize.height - displayH) / 2;
+    const displayCX = imgBaseX + ((x1 + x2) / 2) * scaleX;
+    const displayCY = imgBaseY + ((y1 + y2) / 2) * scaleY;
+
+    // Pan needed to bring region center to viewport center at targetZoom.
+    // Viewer transform: scale(zoom) translate(pan/zoom) from center, so:
+    //   screenPos = containerCenter + zoom * (displayPos - containerCenter) + pan
+    // Setting screenPos = containerCenter → pan = -zoom * (displayPos - containerCenter)
+    const panX = -(displayCX - containerSize.width / 2) * targetZoom;
+    const panY = -(displayCY - containerSize.height / 2) * targetZoom;
+
+    setZoom(targetZoom);
+    setPosition({ x: panX, y: panY });
+  }, [analysisData, containerSize]);
+
+  // Expose jumpToRegion via a ref-style prop pattern
+  // We expose it by adding it to the returned JSX via a hidden handler in parent via onJumpToRegion
+
+  // Parse heatmap data for overlay
+  const heatmapData = analysisData?.heatmap_data;
+  const tiles = heatmapData?.tiles ?? [];
+  const slideWidth = heatmapData?.width ?? 0;
+  const slideHeight = heatmapData?.height ?? 0;
+  const tileSize = heatmapData?.tile_size ?? 224;
+
+  // Parse region data for overlay
+  const rawRegions: any[] = Array.isArray(analysisData?.regions) ? analysisData.regions : [];
+  const regions: Region[] = rawRegions
+    .filter(r => Array.isArray(r.bbox) && r.bbox.length === 4)
+    .map((r, i) => ({
+      id: r.id ?? `R${i + 1}`,
+      name: r.name ?? `Region ${i + 1}`,
+      confidence: typeof r.confidence === 'number' ? r.confidence : (r.score ?? 0) * 100,
+      bbox: r.bbox as [number, number, number, number],
+    }));
 
   return (
     <div className="relative w-full h-full flex flex-col rounded-2xl overflow-hidden border border-border/60 bg-card shadow-soft">
@@ -115,7 +220,7 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
       </div>
 
       {/* ── Viewer Canvas ── */}
-      <div className="relative flex-1 min-h-0 overflow-hidden">
+      <div ref={containerRef} className="relative flex-1 min-h-0 overflow-hidden">
 
         {/* AI Analysis Regeneration Loading Overlay */}
         {isLoading && (
@@ -133,30 +238,8 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
           </div>
         )}
 
-        {/* Heatmap Legend (inside viewer, bottom-left) */}
-        {showHeatmap && analysisData?.heatmap_data && (
-          <div className="absolute bottom-3 left-3 glass-card rounded-xl p-3 shadow-medium z-20 pointer-events-none">
-            <h4 className="text-[10px] font-bold mb-2 text-foreground uppercase tracking-wide">Heatmap Legend</h4>
-            <div className="h-2 rounded-full confidence-gradient mb-1.5 w-28" />
-            <div className="flex justify-between text-[9px] font-semibold text-muted-foreground mb-2">
-              <span>Normal</span>
-              <span>Suspect</span>
-              <span>Tumor</span>
-            </div>
-            {analysisData.metrics && (
-              <div className="space-y-1 border-t border-border pt-2 text-[10px]">
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Tiles</span>
-                  <span className="font-semibold">{analysisData.metrics.total_tiles_analyzed}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Tumor</span>
-                  <span className="font-semibold text-destructive">{analysisData.metrics.tumor_tiles_detected}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* ── NEW: Heatmap Legend (bottom-right) ── */}
+        <HeatmapLegend show={showHeatmap && !!analysisData?.heatmap_data} />
 
         {/* Analysis results overlay (top-right, only in heatmap mode) */}
         {showHeatmap && analysisData && (
@@ -181,9 +264,9 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
           </div>
         )}
 
-        {/* Mini-map (bottom-right, anchored to viewport not image) */}
+        {/* Mini-map (bottom-right is now occupied by legend; move mini-map to bottom-left when heatmap is on) */}
         {imageUrl && !imageLoading && (
-          <div className="absolute bottom-3 right-3 z-20">
+          <div className={cn("absolute bottom-3 z-20", showHeatmap && analysisData?.heatmap_data ? "left-3" : "right-3")}>
             <div className="bg-card/90 backdrop-blur border border-border/60 rounded-xl overflow-hidden shadow-medium">
               <div className="relative w-24 h-20">
                 <img src={imageUrl} className="absolute inset-0 w-full h-full object-cover opacity-50" alt="" aria-hidden />
@@ -258,11 +341,36 @@ export const WSIViewer = ({ showHeatmap, onToggleHeatmap, uploadedImage, analysi
                 onError={handleImageError}
               />
 
-              {/* Heatmap overlay */}
-              {showHeatmap && analysisData?.heatmap_data && (
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="w-full h-full bg-gradient-to-br from-red-500/20 to-green-500/20 opacity-60" />
-                </div>
+              {/* ── NEW: Canvas Heatmap Overlay ── */}
+              {!imageLoading && (
+                <HeatmapOverlay
+                  tiles={tiles}
+                  tileSize={tileSize}
+                  slideWidth={slideWidth}
+                  slideHeight={slideHeight}
+                  show={showHeatmap && tiles.length > 0}
+                  zoom={zoom}
+                  panX={position.x}
+                  panY={position.y}
+                  containerWidth={containerSize.width}
+                  containerHeight={containerSize.height}
+                />
+              )}
+
+              {/* ── NEW: Region Bounding Box Overlay ── */}
+              {!imageLoading && regions.length > 0 && (
+                <RegionOverlay
+                  regions={regions}
+                  slideWidth={slideWidth || 1}
+                  slideHeight={slideHeight || 1}
+                  containerWidth={containerSize.width}
+                  containerHeight={containerSize.height}
+                  zoom={zoom}
+                  panX={position.x}
+                  panY={position.y}
+                  onRegionClick={jumpToRegion}
+                  show={true}
+                />
               )}
 
               {/* Heatmap mode badge */}
