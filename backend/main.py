@@ -23,7 +23,7 @@ from service.ai_service import AIService
 
 from service.tif_to_png_service import convert_tif_to_png
 from supabase_client import SupabaseClient
-
+from routes.auth_routes import auth_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -81,6 +81,8 @@ app.mount("/reports", StaticFiles(directory="reports"), name="reports")
 
 # Initialize services
 ai_service = AIService()
+
+app.include_router(auth_router, prefix='/auth')
 
 # Patient Routes
 @app.post("/api/patients/", response_model=PatientResponse)

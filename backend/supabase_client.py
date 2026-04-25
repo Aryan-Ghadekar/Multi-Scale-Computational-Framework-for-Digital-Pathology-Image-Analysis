@@ -11,7 +11,7 @@ class SupabaseClient:
     def get_client(cls) -> Client:
         if cls._instance is None:
             url = os.getenv("SUPABASE_URL")
-            key = os.getenv("SUPABASE_KEY")
+            key = os.getenv("SUPABASE_SERVICE_KEY")
             
             if not url or not key:
                 raise ValueError("Supabase URL and Key must be set in environment variables")
