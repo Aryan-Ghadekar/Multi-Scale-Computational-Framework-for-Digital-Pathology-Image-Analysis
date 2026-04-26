@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Microscope, Users, FlaskConical, FileText, ShieldCheck,
-  AlertTriangle, TrendingUp, Clock, CheckCircle2, XCircle,
-  Search, LogOut, RefreshCw, Trash2, CheckCheck,
-  ChevronDown, ChevronUp, Activity, Eye, UserCheck,
-  BarChart3, ArrowUpRight, Filter, X
+  Microscope, Users, FlaskConical, FileText,
+  AlertTriangle, CheckCircle2, Search, LogOut, RefreshCw,
+  Trash2, CheckCheck, ChevronDown, ChevronUp, Activity,
+  Eye, UserCheck, BarChart3, ArrowUpRight, Filter,
+  ShieldCheck, Stethoscope, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,7 +72,7 @@ interface UserSummary {
   created_at?: string;
 }
 
-// ── API helpers ───────────────────────────────────────────────────────────────
+// ── API ───────────────────────────────────────────────────────────────────────
 
 const BASE = "http://localhost:8000";
 
@@ -93,111 +93,147 @@ async function adminFetch(path: string, opts: RequestInit = {}) {
   return res.json();
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Risk Badge ────────────────────────────────────────────────────────────────
 
 const RiskBadge = ({ prob }: { prob?: number }) => {
   if (prob === undefined || prob === null)
-    return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-800 text-gray-400">N/A</span>;
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+        N/A
+      </span>
+    );
   const isHigh = prob >= 0.7;
-  const isMed = prob >= 0.4;
+  const isMed  = prob >= 0.4;
   const cls = isHigh
-    ? "bg-red-950 text-red-400 border-red-800"
+    ? "bg-red-50 text-red-600 border-red-200"
     : isMed
-    ? "bg-amber-950 text-amber-400 border-amber-800"
-    : "bg-emerald-950 text-emerald-400 border-emerald-800";
-  const label = isHigh ? "HIGH" : isMed ? "MED" : "LOW";
+    ? "bg-amber-50 text-amber-600 border-amber-200"
+    : "bg-success/10 text-success border-success/30";
   return (
     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${cls}`}>
-      {label} {(prob * 100).toFixed(0)}%
+      {isHigh ? "HIGH" : isMed ? "MED" : "LOW"} {(prob * 100).toFixed(0)}%
     </span>
   );
 };
 
+// ── Role Badge ────────────────────────────────────────────────────────────────
+
 const RoleBadge = ({ role }: { role?: string }) => {
   const map: Record<string, string> = {
-    admin: "bg-violet-950 text-violet-300 border-violet-700",
-    pathologist: "bg-cyan-950 text-cyan-300 border-cyan-700",
-    researcher: "bg-emerald-950 text-emerald-300 border-emerald-700",
+    admin:       "bg-warning/10 text-warning border-warning/30",
+    pathologist: "bg-primary/10 text-primary border-primary/30",
+    researcher:  "bg-success/10 text-success border-success/30",
+  };
+  const icons: Record<string, React.ReactNode> = {
+    admin:       <ShieldCheck className="w-2.5 h-2.5" />,
+    pathologist: <Stethoscope className="w-2.5 h-2.5" />,
+    researcher:  <FlaskConical className="w-2.5 h-2.5" />,
   };
   return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${map[role || ""] || "bg-gray-800 text-gray-400 border-gray-700"}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${map[role || ""] || "bg-muted text-muted-foreground border-border"}`}>
+      {icons[role || ""]}
       {role || "—"}
     </span>
   );
 };
 
+// ── Stat Card ─────────────────────────────────────────────────────────────────
+
 const StatCard = ({
-  icon: Icon, label, value, sub, accent, trend,
+  icon: Icon, label, value, sub, gradient, trend,
 }: {
-  icon: any; label: string; value: string | number; sub?: string; accent: string; trend?: string;
+  icon: any; label: string; value: string | number;
+  sub?: string; gradient: string; trend?: string;
 }) => (
-  <div className={`relative overflow-hidden rounded-2xl border border-white/5 bg-[#0f1117] p-5 flex flex-col gap-3 group hover:border-white/10 transition-all duration-300`}>
-    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`}
-      style={{ background: `radial-gradient(ellipse at top left, ${accent}18 0%, transparent 60%)` }} />
+  <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3 shadow-soft hover:shadow-medium transition-all duration-300">
     <div className="flex items-start justify-between">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center`}
-        style={{ background: `${accent}22`, border: `1px solid ${accent}44` }}>
-        <Icon className="w-5 h-5" style={{ color: accent }} />
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-glow" style={{ background: gradient }}>
+        <Icon className="w-5 h-5 text-white" />
       </div>
       {trend && (
-        <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-400">
+        <span className="flex items-center gap-0.5 text-[11px] font-semibold text-success">
           <ArrowUpRight className="w-3 h-3" />{trend}
         </span>
       )}
     </div>
     <div>
-      <p className="text-3xl font-black text-white tracking-tight">{value}</p>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-0.5">{label}</p>
-      {sub && <p className="text-[11px] text-gray-600 mt-1">{sub}</p>}
+      <p className="text-2xl font-black text-foreground tracking-tight">{value}</p>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-0.5">{label}</p>
+      {sub && <p className="text-[11px] text-muted-foreground/70 mt-1">{sub}</p>}
     </div>
   </div>
 );
 
-// ── Main Admin Page ───────────────────────────────────────────────────────────
+// ── Shared table header cell ──────────────────────────────────────────────────
 
-type Tab = "overview" | "patients" | "analyses" | "reports" | "users";
+const Th = ({ children }: { children: React.ReactNode }) => (
+  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+    {children}
+  </th>
+);
+
+// ── Shared filter pill ────────────────────────────────────────────────────────
+
+const FilterPill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+  <button
+    onClick={onClick}
+    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+      active
+        ? "bg-primary/10 border-primary/30 text-primary"
+        : "border-border text-muted-foreground hover:border-primary/20 hover:text-foreground bg-muted/30"
+    }`}
+  >
+    {children}
+  </button>
+);
+
+// ── Tab config ────────────────────────────────────────────────────────────────
+
+type Tab = "overview" | "patients" | "analyses" | "reports" ;
+
+const TABS: { id: Tab; label: string; icon: any }[] = [
+  { id: "overview",  label: "Overview",  icon: BarChart3    },
+  { id: "patients",  label: "Patients",  icon: Users        },
+  { id: "analyses",  label: "Analyses",  icon: FlaskConical },
+  { id: "reports",   label: "Reports",   icon: FileText     }
+];
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 const AdminPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [patients, setPatients] = useState<PatientSummary[]>([]);
-  const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
-  const [reports, setReports] = useState<ReportSummary[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [riskFilter, setRiskFilter] = useState<string>("");
-  const [finalizedFilter, setFinalizedFilter] = useState<string>("");
-  const [expandedRow, setExpandedRow] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [finalizing, setFinalizing] = useState<number | null>(null);
+  const [activeTab, setActiveTab]             = useState<Tab>("overview");
+  const [stats, setStats]                     = useState<DashboardStats | null>(null);
+  const [patients, setPatients]               = useState<PatientSummary[]>([]);
+  const [analyses, setAnalyses]               = useState<AnalysisSummary[]>([]);
+  const [reports, setReports]                 = useState<ReportSummary[]>([]);
+  const [users, setUsers]                     = useState<UserSummary[]>([]);
+  const [loading, setLoading]                 = useState(false);
+  const [search, setSearch]                   = useState("");
+  const [riskFilter, setRiskFilter]           = useState("");
+  const [finalizedFilter, setFinalizedFilter] = useState("");
+  const [expandedRow, setExpandedRow]         = useState<number | null>(null);
+  const [deleting, setDeleting]               = useState<number | null>(null);
+  const [finalizing, setFinalizing]           = useState<number | null>(null);
 
   const load = useCallback(async (tab: Tab) => {
     setLoading(true);
     try {
       if (tab === "overview") {
-        const data = await adminFetch("/admin/dashboard");
-        setStats(data);
+        setStats(await adminFetch("/admin/dashboard"));
       } else if (tab === "patients") {
         const qs = search ? `&search=${encodeURIComponent(search)}` : "";
-        const data = await adminFetch(`/admin/patients?limit=100${qs}`);
-        setPatients(data);
+        setPatients(await adminFetch(`/admin/patients?limit=100${qs}`));
       } else if (tab === "analyses") {
         const qs = riskFilter ? `&risk_filter=${riskFilter}` : "";
-        const data = await adminFetch(`/admin/analyses?limit=100${qs}`);
-        setAnalyses(data);
+        setAnalyses(await adminFetch(`/admin/analyses?limit=100${qs}`));
       } else if (tab === "reports") {
         const qs = finalizedFilter !== "" ? `&finalized=${finalizedFilter}` : "";
-        const data = await adminFetch(`/admin/reports?limit=100${qs}`);
-        setReports(data);
-      } else if (tab === "users") {
-        const data = await adminFetch("/admin/users");
-        setUsers(data);
-      }
+        setReports(await adminFetch(`/admin/reports?limit=100${qs}`));
+      } 
     } catch (err: any) {
       if (err.message.includes("401") || err.message.includes("403")) {
-        toast.error("Admin access required. Please log in as admin.");
+        toast.error("Admin access required.");
         navigate("/login");
       } else {
         toast.error(err.message);
@@ -207,14 +243,7 @@ const AdminPage = () => {
     }
   }, [activeTab, search, riskFilter, finalizedFilter]);
 
-  useEffect(() => {
-    load(activeTab);
-  }, [activeTab]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    load(activeTab);
-  };
+  useEffect(() => { load(activeTab); }, [activeTab]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Permanently delete this patient and all associated data?")) return;
@@ -223,11 +252,8 @@ const AdminPage = () => {
       await adminFetch(`/admin/patients/${id}`, { method: "DELETE" });
       toast.success("Patient deleted.");
       setPatients(prev => prev.filter(p => p.id !== id));
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setDeleting(null);
-    }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setDeleting(null); }
   };
 
   const handleFinalize = async (id: number) => {
@@ -236,11 +262,8 @@ const AdminPage = () => {
       await adminFetch(`/admin/reports/${id}/finalize`, { method: "PATCH" });
       toast.success("Report finalized.");
       setReports(prev => prev.map(r => r.id === id ? { ...r, is_finalized: true } : r));
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setFinalizing(null);
-    }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setFinalizing(null); }
   };
 
   const handleLogout = () => {
@@ -249,49 +272,63 @@ const AdminPage = () => {
     navigate("/login");
   };
 
-  const tabs: { id: Tab; label: string; icon: any }[] = [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "patients", label: "Patients", icon: Users },
-    { id: "analyses", label: "Analyses", icon: FlaskConical },
-    { id: "reports", label: "Reports", icon: FileText },
-    { id: "users", label: "Users", icon: UserCheck },
-  ];
-
   return (
-    <div className="min-h-screen bg-[#080a0f] text-white font-sans">
-      {/* ── Header ── */}
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#080a0f]/80 backdrop-blur-xl">
-        <div className="max-w-screen-2xl mx-auto px-6 py-3.5 flex items-center justify-between">
+    <div className="min-h-screen bg-background flex flex-col">
+
+      {/* ── Header — identical structure to Login/Index ── */}
+      <header className="border-b border-border bg-card/80 backdrop-blur-md shadow-soft sticky top-0 z-30">
+        <div className="px-5 py-3 flex items-center justify-between">
+
+          {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-              <Microscope className="w-5 h-5 text-white" />
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shadow-glow"
+              style={{ background: "linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))" }}
+            >
+              <Microscope className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="font-black text-base tracking-tight">PathAI Pro</span>
-              <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-violet-400 border border-violet-800 bg-violet-950 px-1.5 py-0.5 rounded-full">Admin</span>
+              <div className="flex items-center gap-2 leading-none">
+                <h1 className="text-base font-bold text-foreground">PathAI Pro</h1>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-warning border border-warning/30 bg-warning/10 px-1.5 py-0.5 rounded-full">
+                  Admin
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Platform Control Center</p>
             </div>
           </div>
 
+          {/* Navigation tabs */}
           <nav className="flex items-center gap-1">
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${activeTab === t.id
-                  ? "bg-white/10 text-white"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}>
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setActiveTab(t.id); setExpandedRow(null); }}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                  activeTab === t.id
+                    ? "bg-primary/10 border border-primary/30 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent"
+                }`}
+              >
                 <t.icon className="w-3.5 h-3.5" />
                 {t.label}
               </button>
             ))}
           </nav>
 
+          {/* Actions */}
           <div className="flex items-center gap-2">
-            <button onClick={() => load(activeTab)} disabled={loading}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-all">
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <button
+              onClick={() => load(activeTab)}
+              disabled={loading}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all border border-border"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-primary" : ""}`} />
             </button>
-            <button onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-red-400 hover:bg-red-950/40 transition-all border border-transparent hover:border-red-900">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border hover:border-destructive/30 transition-all"
+            >
               <LogOut className="w-3.5 h-3.5" />
               Logout
             </button>
@@ -299,141 +336,159 @@ const AdminPage = () => {
         </div>
       </header>
 
-      <main className="max-w-screen-2xl mx-auto px-6 py-8">
+      {/* ── Page body ── */}
+      <main className="flex-1 px-6 py-8 max-w-screen-2xl mx-auto w-full">
 
-        {/* ── Overview Tab ── */}
+        {/* ════ OVERVIEW ════ */}
         {activeTab === "overview" && (
-          <div className="space-y-8">
+          <div className="space-y-6 animate-slide-up">
             <div>
-              <h1 className="text-2xl font-black tracking-tight">Control Center</h1>
-              <p className="text-sm text-gray-500 mt-1">Platform-wide metrics and activity snapshot</p>
+              <h2 className="text-xl font-bold text-foreground">Control Center</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Platform-wide metrics and activity snapshot</p>
             </div>
 
             {stats ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <StatCard icon={Users} label="Total Patients" value={stats.total_patients} accent="#06b6d4" />
-                  <StatCard icon={FlaskConical} label="Total Analyses" value={stats.total_analyses}
-                    sub={`${stats.analyses_today} today`} accent="#8b5cf6" trend={`${stats.analyses_this_week} this week`} />
-                  <StatCard icon={FileText} label="Total Reports" value={stats.total_reports}
-                    sub={`${stats.pending_reports} pending`} accent="#f59e0b" />
-                  <StatCard icon={UserCheck} label="Registered Users" value={stats.total_users} accent="#10b981" />
+                  <StatCard icon={Users}       label="Total Patients"    value={stats.total_patients}
+                    gradient="linear-gradient(135deg, hsl(187 85% 40%), hsl(200 80% 45%))" />
+                  <StatCard icon={FlaskConical} label="Total Analyses"    value={stats.total_analyses}
+                    sub={`${stats.analyses_today} today`} trend={`${stats.analyses_this_week} this week`}
+                    gradient="linear-gradient(135deg, hsl(160 70% 40%), hsl(145 65% 42%))" />
+                  <StatCard icon={FileText}    label="Total Reports"     value={stats.total_reports}
+                    sub={`${stats.pending_reports} pending`}
+                    gradient="linear-gradient(135deg, hsl(40 90% 52%), hsl(30 88% 50%))" />
+                  <StatCard icon={UserCheck}   label="Registered Users"  value={stats.total_users}
+                    gradient="linear-gradient(135deg, hsl(270 70% 55%), hsl(250 65% 52%))" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <StatCard icon={AlertTriangle} label="High Risk Cases" value={stats.high_risk_cases}
-                    sub="Lesion prob ≥ 70%" accent="#ef4444" />
-                  <StatCard icon={Activity} label="Avg Lesion Probability" value={`${(stats.avg_lesion_probability * 100).toFixed(1)}%`}
-                    accent="#f97316" />
-                  <StatCard icon={CheckCircle2} label="Finalized Reports" value={stats.finalized_reports}
-                    sub={`${stats.pending_reports} still pending`} accent="#22c55e" />
+                  <StatCard icon={AlertTriangle} label="High Risk Cases"        value={stats.high_risk_cases}
+                    sub="Lesion probability ≥ 70%"
+                    gradient="linear-gradient(135deg, hsl(0 75% 55%), hsl(15 80% 50%))" />
+                  <StatCard icon={Activity}      label="Avg Lesion Probability" value={`${(stats.avg_lesion_probability * 100).toFixed(1)}%`}
+                    gradient="linear-gradient(135deg, hsl(25 85% 52%), hsl(35 82% 50%))" />
+                  <StatCard icon={CheckCircle2}  label="Finalized Reports"      value={stats.finalized_reports}
+                    sub={`${stats.pending_reports} still pending`}
+                    gradient="linear-gradient(135deg, hsl(160 70% 40%), hsl(145 65% 42%))" />
                 </div>
 
-                {/* Risk distribution bar */}
-                <div className="rounded-2xl border border-white/5 bg-[#0f1117] p-6">
-                  <h3 className="text-sm font-bold text-gray-300 mb-4 uppercase tracking-widest">Platform Activity</h3>
+                {/* Activity bars */}
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-soft">
+                  <h3 className="text-xs font-bold text-foreground mb-5 uppercase tracking-widest">Platform Activity</h3>
                   <div className="space-y-4">
                     {[
-                      { label: "Analyses Today", val: stats.analyses_today, max: Math.max(stats.analyses_this_week, 1), color: "#8b5cf6" },
-                      { label: "Analyses This Week", val: stats.analyses_this_week, max: Math.max(stats.total_analyses, 1), color: "#06b6d4" },
-                      { label: "High Risk Cases", val: stats.high_risk_cases, max: Math.max(stats.total_analyses, 1), color: "#ef4444" },
-                      { label: "Finalized Reports", val: stats.finalized_reports, max: Math.max(stats.total_reports, 1), color: "#22c55e" },
+                      { label: "Analyses Today",     val: stats.analyses_today,    max: Math.max(stats.analyses_this_week, 1), color: "hsl(187 85% 40%)" },
+                      { label: "Analyses This Week", val: stats.analyses_this_week, max: Math.max(stats.total_analyses, 1),    color: "hsl(160 70% 40%)" },
+                      { label: "High Risk Cases",    val: stats.high_risk_cases,   max: Math.max(stats.total_analyses, 1),     color: "hsl(0 72% 51%)"   },
+                      { label: "Finalized Reports",  val: stats.finalized_reports,  max: Math.max(stats.total_reports, 1),      color: "hsl(160 70% 40%)" },
                     ].map(row => (
                       <div key={row.label} className="flex items-center gap-4">
-                        <span className="text-xs text-gray-500 w-40 flex-shrink-0">{row.label}</span>
-                        <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-700"
-                            style={{ width: `${Math.min((row.val / row.max) * 100, 100)}%`, background: row.color }} />
+                        <span className="text-xs text-muted-foreground w-44 flex-shrink-0">{row.label}</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${Math.min((row.val / row.max) * 100, 100)}%`, background: row.color }}
+                          />
                         </div>
-                        <span className="text-xs font-bold text-white w-8 text-right">{row.val}</span>
+                        <span className="text-xs font-bold text-foreground w-8 text-right">{row.val}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-center h-48 text-gray-600">
-                {loading ? "Loading statistics…" : "No data"}
+              <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+                {loading ? "Loading statistics…" : "No data available"}
               </div>
             )}
           </div>
         )}
 
-        {/* ── Patients Tab ── */}
+        {/* ════ PATIENTS ════ */}
         {activeTab === "patients" && (
-          <div className="space-y-6">
+          <div className="space-y-5 animate-slide-up">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-black tracking-tight">All Patients</h1>
-                <p className="text-sm text-gray-500 mt-1">{patients.length} records</p>
+                <h2 className="text-xl font-bold text-foreground">All Patients</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{patients.length} records</p>
               </div>
-              <form onSubmit={handleSearch} className="flex items-center gap-2">
+              <form onSubmit={e => { e.preventDefault(); load("patients"); }} className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input value={search} onChange={e => setSearch(e.target.value)}
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    value={search} onChange={e => setSearch(e.target.value)}
                     placeholder="Search name or case ID…"
-                    className="bg-[#0f1117] border border-white/10 rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-600 w-64" />
+                    className="bg-muted/40 border border-border rounded-xl pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 w-64 transition-all"
+                  />
                 </div>
-                <button type="submit" className="px-4 py-2 rounded-xl bg-violet-700 hover:bg-violet-600 text-sm font-semibold transition-all">
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 active:scale-[0.98] shadow-glow transition-all"
+                  style={{ background: "linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))" }}
+                >
                   Search
                 </button>
               </form>
             </div>
 
-            <div className="rounded-2xl border border-white/5 bg-[#0f1117] overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl shadow-soft overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/5">
-                    {["Case ID", "Name", "Age / Gender", "Analyses", "Reports", "Latest Risk", "Registered", ""].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-600">{h}</th>
-                    ))}
+                  <tr className="border-b border-border bg-muted/30">
+                    {["Case ID","Name","Age / Gender","Analyses","Reports","Latest Risk","Registered",""].map(h => <Th key={h}>{h}</Th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {patients.map(p => (
                     <>
                       <tr key={p.id}
-                        className="border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer"
-                        onClick={() => setExpandedRow(expandedRow === p.id ? null : p.id)}>
-                        <td className="px-4 py-3 font-mono text-xs text-cyan-400">{p.case_id}</td>
-                        <td className="px-4 py-3 font-semibold text-white">{p.name}</td>
-                        <td className="px-4 py-3 text-gray-400">{p.age}y / {p.gender}</td>
+                        className="border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer"
+                        onClick={() => setExpandedRow(expandedRow === p.id ? null : p.id)}
+                      >
+                        <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{p.case_id}</td>
+                        <td className="px-4 py-3 font-semibold text-foreground">{p.name}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{p.age}y / {p.gender}</td>
                         <td className="px-4 py-3">
-                          <span className="flex items-center gap-1 text-violet-300 font-bold">
+                          <span className="flex items-center gap-1 text-primary font-bold text-xs">
                             <FlaskConical className="w-3.5 h-3.5" />{p.analysis_count}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="flex items-center gap-1 text-amber-300 font-bold">
+                          <span className="flex items-center gap-1 text-warning font-bold text-xs">
                             <FileText className="w-3.5 h-3.5" />{p.report_count}
                           </span>
                         </td>
                         <td className="px-4 py-3"><RiskBadge prob={p.latest_lesion_probability} /></td>
-                        <td className="px-4 py-3 text-gray-600 text-xs">{new Date(p.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(p.created_at).toLocaleDateString()}</td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setExpandedRow(expandedRow === p.id ? null : p.id)}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all">
+                          <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                            <button
+                              onClick={() => setExpandedRow(expandedRow === p.id ? null : p.id)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent hover:border-border transition-all"
+                            >
                               {expandedRow === p.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             </button>
-                            <button onClick={() => handleDelete(p.id)} disabled={deleting === p.id}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-950/40 transition-all">
+                            <button
+                              onClick={() => handleDelete(p.id)} disabled={deleting === p.id}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all"
+                            >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
                       </tr>
                       {expandedRow === p.id && (
-                        <tr key={`exp-${p.id}`} className="bg-[#0a0d14]">
+                        <tr key={`exp-${p.id}`} className="bg-muted/20">
                           <td colSpan={8} className="px-6 py-4">
-                            <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div className="grid grid-cols-2 gap-6 text-xs">
                               <div>
-                                <p className="text-gray-600 uppercase tracking-widest mb-1">Contact</p>
-                                <p className="text-gray-300">{p.contact_info || "—"}</p>
+                                <p className="text-muted-foreground uppercase tracking-widest text-[10px] font-bold mb-1">Contact Info</p>
+                                <p className="text-foreground">{p.contact_info || "—"}</p>
                               </div>
                               <div>
-                                <p className="text-gray-600 uppercase tracking-widest mb-1">Medical History</p>
-                                <p className="text-gray-300">{p.medical_history || "—"}</p>
+                                <p className="text-muted-foreground uppercase tracking-widest text-[10px] font-bold mb-1">Medical History</p>
+                                <p className="text-foreground">{p.medical_history || "—"}</p>
                               </div>
                             </div>
                           </td>
@@ -442,7 +497,7 @@ const AdminPage = () => {
                     </>
                   ))}
                   {patients.length === 0 && !loading && (
-                    <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600">No patients found</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">No patients found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -450,81 +505,82 @@ const AdminPage = () => {
           </div>
         )}
 
-        {/* ── Analyses Tab ── */}
+        {/* ════ ANALYSES ════ */}
         {activeTab === "analyses" && (
-          <div className="space-y-6">
+          <div className="space-y-5 animate-slide-up">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-black tracking-tight">All Analyses</h1>
-                <p className="text-sm text-gray-500 mt-1">{analyses.length} records</p>
+                <h2 className="text-xl font-bold text-foreground">All Analyses</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{analyses.length} records</p>
               </div>
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                {["", "high", "medium", "low"].map(f => (
-                  <button key={f} onClick={() => { setRiskFilter(f); setTimeout(() => load("analyses"), 0); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${riskFilter === f
-                      ? f === "high" ? "bg-red-950 text-red-300 border-red-800"
-                        : f === "medium" ? "bg-amber-950 text-amber-300 border-amber-800"
-                        : f === "low" ? "bg-emerald-950 text-emerald-300 border-emerald-800"
-                        : "bg-white/10 text-white border-white/20"
-                      : "text-gray-500 border-white/5 hover:border-white/10 hover:text-gray-300"}`}>
-                    {f || "All"}
-                  </button>
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                {[
+                  { val: "",       label: "All"    },
+                  { val: "high",   label: "High"   },
+                  { val: "medium", label: "Medium" },
+                  { val: "low",    label: "Low"    },
+                ].map(f => (
+                  <FilterPill key={f.val} active={riskFilter === f.val}
+                    onClick={() => { setRiskFilter(f.val); setTimeout(() => load("analyses"), 0); }}>
+                    {f.label}
+                  </FilterPill>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/5 bg-[#0f1117] overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl shadow-soft overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/5">
-                    {["ID", "Case ID", "Patient", "Lesion Prob", "Confidence", "Level", "Date", ""].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-600">{h}</th>
-                    ))}
+                  <tr className="border-b border-border bg-muted/30">
+                    {["ID","Case ID","Patient","Lesion Prob","Confidence","Risk","Date",""].map(h => <Th key={h}>{h}</Th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {analyses.map(a => (
                     <>
-                      <tr key={a.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer"
-                        onClick={() => setExpandedRow(expandedRow === a.id ? null : a.id)}>
-                        <td className="px-4 py-3 text-gray-600 font-mono text-xs">#{a.id}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-cyan-400">{a.case_id}</td>
-                        <td className="px-4 py-3 font-semibold text-white">{a.patient_name || `#${a.patient_id}`}</td>
+                      <tr key={a.id}
+                        className="border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer"
+                        onClick={() => setExpandedRow(expandedRow === a.id ? null : a.id)}
+                      >
+                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">#{a.id}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{a.case_id}</td>
+                        <td className="px-4 py-3 font-semibold text-foreground">{a.patient_name || `#${a.patient_id}`}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-20 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                              <div className="h-full rounded-full"
-                                style={{
-                                  width: `${a.lesion_probability * 100}%`,
-                                  background: a.lesion_probability >= 0.7 ? "#ef4444" : a.lesion_probability >= 0.4 ? "#f59e0b" : "#22c55e"
-                                }} />
+                            <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{
+                                width: `${a.lesion_probability * 100}%`,
+                                background: a.lesion_probability >= 0.7 ? "hsl(0 72% 51%)" : a.lesion_probability >= 0.4 ? "hsl(40 90% 52%)" : "hsl(160 70% 40%)",
+                              }} />
                             </div>
-                            <span className="text-xs font-bold text-white">{(a.lesion_probability * 100).toFixed(1)}%</span>
+                            <span className="text-xs font-bold text-foreground">{(a.lesion_probability * 100).toFixed(1)}%</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-400">{(a.overall_confidence * 100).toFixed(1)}%</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{(a.overall_confidence * 100).toFixed(1)}%</td>
                         <td className="px-4 py-3"><RiskBadge prob={a.lesion_probability} /></td>
-                        <td className="px-4 py-3 text-gray-600 text-xs">{new Date(a.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(a.created_at).toLocaleDateString()}</td>
                         <td className="px-4 py-3">
-                          <button onClick={e => { e.stopPropagation(); setExpandedRow(expandedRow === a.id ? null : a.id); }}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10">
+                          <button
+                            onClick={e => { e.stopPropagation(); setExpandedRow(expandedRow === a.id ? null : a.id); }}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all"
+                          >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         </td>
                       </tr>
                       {expandedRow === a.id && (
-                        <tr key={`aexp-${a.id}`} className="bg-[#0a0d14]">
+                        <tr key={`aexp-${a.id}`} className="bg-muted/20">
                           <td colSpan={8} className="px-6 py-4">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mb-2">AI Explanation</p>
-                            <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap">{a.ai_explanation || "No explanation generated."}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">AI Explanation</p>
+                            <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{a.ai_explanation || "No explanation generated."}</p>
                           </td>
                         </tr>
                       )}
                     </>
                   ))}
                   {analyses.length === 0 && !loading && (
-                    <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600">No analyses found</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">No analyses found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -532,62 +588,56 @@ const AdminPage = () => {
           </div>
         )}
 
-        {/* ── Reports Tab ── */}
+        {/* ════ REPORTS ════ */}
         {activeTab === "reports" && (
-          <div className="space-y-6">
+          <div className="space-y-5 animate-slide-up">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-black tracking-tight">All Reports</h1>
-                <p className="text-sm text-gray-500 mt-1">{reports.length} records</p>
+                <h2 className="text-xl font-bold text-foreground">All Reports</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{reports.length} records</p>
               </div>
               <div className="flex items-center gap-2">
-                {[
-                  { val: "", label: "All" },
-                  { val: "true", label: "Finalized" },
-                  { val: "false", label: "Pending" },
-                ].map(f => (
-                  <button key={f.val} onClick={() => { setFinalizedFilter(f.val); setTimeout(() => load("reports"), 0); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${finalizedFilter === f.val
-                      ? "bg-white/10 text-white border-white/20"
-                      : "text-gray-500 border-white/5 hover:border-white/10 hover:text-gray-300"}`}>
+                {[{ val: "", label: "All" }, { val: "true", label: "Finalized" }, { val: "false", label: "Pending" }].map(f => (
+                  <FilterPill key={f.val} active={finalizedFilter === f.val}
+                    onClick={() => { setFinalizedFilter(f.val); setTimeout(() => load("reports"), 0); }}>
                     {f.label}
-                  </button>
+                  </FilterPill>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/5 bg-[#0f1117] overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl shadow-soft overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/5">
-                    {["ID", "Case ID", "Patient", "Analysis", "Status", "Generated", ""].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-600">{h}</th>
-                    ))}
+                  <tr className="border-b border-border bg-muted/30">
+                    {["ID","Case ID","Patient","Analysis","Status","Generated",""].map(h => <Th key={h}>{h}</Th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {reports.map(r => (
-                    <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">#{r.id}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-cyan-400">{r.case_id}</td>
-                      <td className="px-4 py-3 font-semibold text-white">{r.patient_name || `#${r.patient_id}`}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">Analysis #{r.analysis_id}</td>
+                    <tr key={r.id} className="border-b border-border/60 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 text-muted-foreground font-mono text-xs">#{r.id}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{r.case_id}</td>
+                      <td className="px-4 py-3 font-semibold text-foreground">{r.patient_name || `#${r.patient_id}`}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">Analysis #{r.analysis_id}</td>
                       <td className="px-4 py-3">
                         {r.is_finalized ? (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full w-fit">
-                            <CheckCircle2 className="w-3 h-3" />FINAL
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-success bg-success/10 border border-success/30 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="w-3 h-3" />FINALIZED
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-950 border border-amber-800 px-2 py-0.5 rounded-full w-fit">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-warning bg-warning/10 border border-warning/30 px-2 py-0.5 rounded-full">
                             <Clock className="w-3 h-3" />PENDING
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs">{new Date(r.generated_at).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(r.generated_at).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
                         {!r.is_finalized && (
-                          <button onClick={() => handleFinalize(r.id)} disabled={finalizing === r.id}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-emerald-400 border border-emerald-800 hover:bg-emerald-950/60 transition-all">
+                          <button
+                            onClick={() => handleFinalize(r.id)} disabled={finalizing === r.id}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-bold text-success border border-success/30 hover:bg-success/10 transition-all disabled:opacity-50"
+                          >
                             <CheckCheck className="w-3 h-3" />
                             {finalizing === r.id ? "…" : "Finalize"}
                           </button>
@@ -596,7 +646,7 @@ const AdminPage = () => {
                     </tr>
                   ))}
                   {reports.length === 0 && !loading && (
-                    <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600">No reports found</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">No reports found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -604,52 +654,57 @@ const AdminPage = () => {
           </div>
         )}
 
-        {/* ── Users Tab ── */}
+        {/* ════ USERS ════ */}
         {activeTab === "users" && (
-          <div className="space-y-6">
+          <div className="space-y-5 animate-slide-up">
             <div>
-              <h1 className="text-2xl font-black tracking-tight">Registered Users</h1>
-              <p className="text-sm text-gray-500 mt-1">{users.length} accounts</p>
+              <h2 className="text-xl font-bold text-foreground">Registered Users</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">{users.length} accounts</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {users.map(u => (
-                <div key={u.id} className="rounded-2xl border border-white/5 bg-[#0f1117] p-5 flex flex-col gap-3 hover:border-white/10 transition-all">
+                <div key={u.id} className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3 shadow-soft hover:shadow-medium hover:border-primary/20 transition-all duration-300">
                   <div className="flex items-start justify-between">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 text-white font-black text-sm">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-glow"
+                      style={{ background: "linear-gradient(135deg, hsl(187 85% 40%), hsl(160 70% 40%))" }}
+                    >
                       {(u.full_name || "?").charAt(0).toUpperCase()}
                     </div>
                     <RoleBadge role={u.role} />
                   </div>
                   <div>
-                    <p className="font-bold text-white text-sm">{u.full_name || "Unknown"}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{u.email || "—"}</p>
+                    <p className="font-bold text-foreground text-sm">{u.full_name || "Unknown"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{u.email || "—"}</p>
                   </div>
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                    <span className="text-[10px] text-gray-600">
+                  <div className="pt-2 border-t border-border flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">
                       {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
                     </span>
-                    <span className="text-[10px] font-mono text-gray-700 truncate max-w-[100px]">{u.id.split("-")[0]}…</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/50 truncate max-w-[100px]">
+                      {u.id.split("-")[0]}…
+                    </span>
                   </div>
                 </div>
               ))}
               {users.length === 0 && !loading && (
-                <div className="col-span-3 py-12 text-center text-gray-600">No users found</div>
+                <div className="col-span-3 py-16 text-center text-muted-foreground">No users found</div>
               )}
             </div>
           </div>
         )}
-
-        {/* Loading overlay */}
-        {loading && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div className="flex items-center gap-3 bg-[#0f1117] border border-white/10 rounded-2xl px-5 py-3 shadow-2xl">
-              <RefreshCw className="w-4 h-4 animate-spin text-violet-400" />
-              <span className="text-sm text-gray-400 font-medium">Loading…</span>
-            </div>
-          </div>
-        )}
       </main>
+
+      {/* ── Loading pill (matches Index page status-pill style) ── */}
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center pb-8 pointer-events-none">
+          <div className="status-pill border bg-card border-primary/30 text-primary shadow-medium px-4 py-2.5">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            <span className="text-xs font-semibold">Loading…</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
