@@ -8,7 +8,8 @@ import UploadPage from "./pages/Upload";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/auth/Login";
 import SignupPage from "./pages/auth/Signup";
-import AdminPage from "./pages/AdminPage"; 
+import AdminPage from "./pages/AdminPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -19,11 +20,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<UploadPage />} />
-          <Route path="/analysis" element={<Index />} />
+          <Route path="/" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
+          <Route path="/analysis" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<SignupPage />} />
-          <Route path="/admin" element={<AdminPage />} />  
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

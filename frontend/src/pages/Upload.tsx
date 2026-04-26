@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { patientApi } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { UserCard } from "@/components/UserCard";
 
 const UploadPage = () => {
   const navigate = useNavigate();
@@ -25,7 +26,28 @@ const UploadPage = () => {
     contact_info: '',
     medical_history: ''
   });
+  const [user, setUser] = useState(null);
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+
+  const BASE = "http://localhost:8000";
+
+  async function adminFetch(path: string, opts: RequestInit = {}) {
+    const token = localStorage.getItem("access_token") || "";
+    const res = await fetch(`${BASE}${path}`, {
+      ...opts,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opts.headers || {}),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+
 
   const handlePatientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +133,18 @@ const UploadPage = () => {
     },
   ];
 
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    navigate("/login");
+  };
+
+  const getUserinfo = useCallback(async () => {
+    setUser(await adminFetch("/auth/auth/me"));
+  }, [setUser]);
+
+  useEffect(() => { getUserinfo(); }, [getUserinfo]);
+
   return (
     <div className="min-h-screen flex overflow-hidden bg-background">
       {/* ── Left Branding Panel ── */}
@@ -133,16 +167,19 @@ const UploadPage = () => {
 
         {/* Logo */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-glow"
-              style={{ background: 'linear-gradient(135deg, hsl(187 85% 44%), hsl(160 70% 42%))' }}
-            >
-              <Microscope className="h-6 w-6 text-white" />
+          <div className="flex  justify-between gap-3 mb-12">
+            <div className="flex items-center gap-3 mb-12">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-glow"
+                style={{ background: 'linear-gradient(135deg, hsl(187 85% 44%), hsl(160 70% 42%))' }}
+              >
+                <Microscope className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-white text-xl font-bold tracking-tight">PathAI Pro</h1>
+                <p className="text-white/50 text-xs">Digital Pathology Platform</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-white text-xl font-bold tracking-tight">PathAI Pro</h1>
-              <p className="text-white/50 text-xs">Digital Pathology Platform</p>
-            </div>
+            <UserCard user={user} onLogout={handleLogout} />
           </div>
 
           <h2 className="text-3xl xl:text-4xl font-bold text-white leading-tight mb-4">
@@ -201,6 +238,9 @@ const UploadPage = () => {
             <p className="text-base font-bold text-foreground">PathAI Pro</p>
             <p className="text-xs text-muted-foreground">Digital Pathology Platform</p>
           </div>
+          <div className="justify-end"> 
+            <UserCard user={user} onLogout={handleLogout} />
+          </div>
         </header>
 
         <div className="flex-1 flex items-center justify-center p-6 lg:p-10">
@@ -242,7 +282,9 @@ const UploadPage = () => {
                     )} />
                   )}
                 </button>
+
               ))}
+
             </div>
 
             {/* ── Patient Form ── */}
