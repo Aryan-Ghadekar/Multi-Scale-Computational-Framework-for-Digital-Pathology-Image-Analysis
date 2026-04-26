@@ -95,3 +95,49 @@ SELECT
 FROM patients p
 LEFT JOIN analyses a ON p.id = a.patient_id
 LEFT JOIN reports r ON a.id = r.analysis_id;
+
+
+-- 1. Create the profiles table
+CREATE TABLE public.profiles (
+  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name   TEXT,
+  role        TEXT CHECK (role IN ('pathologist', 'researcher', 'admin')),
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Enable Row Level Security
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- 3. RLS policy — users can only read their own profile
+CREATE POLICY "Users can view own profile"
+  ON public.profiles
+  FOR SELECT
+  USING (auth.uid() = id);
+
+-- 4. RLS policy — service role can do everything (for your admin client)
+CREATE POLICY "Service role full access"
+  ON public.profiles
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- 5. Trigger function — auto-creates profile row on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, role, created_at)
+  VALUES (
+    NEW.id,
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'role',
+    NOW()
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. Attach trigger to auth.users
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
