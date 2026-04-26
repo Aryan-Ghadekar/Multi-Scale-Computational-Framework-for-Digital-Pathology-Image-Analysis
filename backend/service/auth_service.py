@@ -23,11 +23,7 @@ from models.auth_models import (
 
 load_dotenv()
 
-logger = logging.getLogger("auth.service")
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+
 
 # ─────────────────────────────────────────────
 # Supabase clients
@@ -69,7 +65,6 @@ def _fetch_profile(user_id: str) -> UserProfile:
             .execute()
         )
     except Exception as exc:
-        logger.error("_fetch_profile DB error user_id=%s: %s", user_id, exc)
         raise ValueError(f"Profile not found (DB error: {exc})") from exc
 
     if not result.data:
@@ -94,7 +89,6 @@ class AuthService:
         3. Sign in immediately to get JWT session tokens.
         4. Return tokens + profile.
         """
-        logger.debug("sign_up: email=%s", data.email)
 
         # 1. Create user via admin API
         try:
@@ -108,14 +102,12 @@ class AuthService:
                 },
             })
         except Exception as exc:
-            logger.error("admin.create_user failed:\n%s", traceback.format_exc())
             raise ValueError(f"Signup failed: {exc}") from exc
 
         user = auth_res.user
         if not user:
             raise ValueError("Signup failed — Supabase returned no user.")
 
-        logger.debug("sign_up: user created id=%s, now signing in to get session", user.id)
 
         # 2. Sign in immediately to obtain JWT tokens
         try:
@@ -124,7 +116,6 @@ class AuthService:
                 "password": data.password,
             })
         except Exception as exc:
-            logger.error("post-signup sign_in failed:\n%s", traceback.format_exc())
             raise ValueError(
                 "Account created but auto-login failed. Please log in manually."
             ) from exc
@@ -135,7 +126,6 @@ class AuthService:
         # 3. Fetch the auto-created profile (inserted by DB trigger)
         profile = _fetch_profile(user.id)
 
-        logger.info("sign_up success: user_id=%s", user.id)
 
         return AuthResponse(
             access_token  = session_res.session.access_token,
@@ -146,7 +136,6 @@ class AuthService:
     # ── Sign-in ──────────────────────────────
 
     async def sign_in(self, data: LoginRequest) -> AuthResponse:
-        logger.debug("sign_in: email=%s", data.email)
 
         try:
             resp = supabase_anon.auth.sign_in_with_password({
@@ -154,7 +143,6 @@ class AuthService:
                 "password": data.password,
             })
         except Exception as exc:
-            logger.warning("sign_in failed email=%s: %s", data.email, exc)
             raise ValueError("Invalid email or password.") from exc
 
         if resp.user is None or resp.session is None:
@@ -164,13 +152,8 @@ class AuthService:
 
         # Enforce that the user is signing in with the correct role
         if data.role and profile.role != data.role:
-            logger.warning(
-                "sign_in role mismatch: claimed=%s actual=%s user_id=%s",
-                data.role, profile.role, resp.user.id,
-            )
             raise ValueError("Role does not match this account.")
 
-        logger.info("sign_in success: user_id=%s", resp.user.id)
 
         return AuthResponse(
             access_token  = resp.session.access_token,
@@ -184,16 +167,13 @@ class AuthService:
         try:
             supabase_anon.auth.sign_out()
         except Exception as exc:
-            logger.warning("sign_out error (ignored): %s", exc)
-
+            raise ValueError(f"Logout failed: {exc}") from exc
     # ── Token verification ────────────────────
 
     async def verify_token(self, token: str) -> dict:
-        logger.debug("verify_token: %.12s...", token)
         try:
             resp = supabase_admin.auth.get_user(token)
         except Exception as exc:
-            logger.warning("verify_token failed: %s", exc)
             raise ValueError("Token is invalid or expired.") from exc
 
         if resp.user is None:

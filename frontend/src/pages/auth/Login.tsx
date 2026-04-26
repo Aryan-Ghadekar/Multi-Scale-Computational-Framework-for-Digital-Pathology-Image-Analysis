@@ -185,7 +185,7 @@ const LoginPage = () => {
             localStorage.setItem("refresh_token", data.refresh_token);
 
             toast.success("Login successful");
-            navigate("/");
+            navigate(data.user.role === "admin" ? "/admin" : "/");
         } catch (err: any) {
             toast.error(err.message);
         } finally {

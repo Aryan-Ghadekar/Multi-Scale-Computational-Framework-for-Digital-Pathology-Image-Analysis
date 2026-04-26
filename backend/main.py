@@ -24,9 +24,10 @@ from service.ai_service import AIService
 from service.tif_to_png_service import convert_tif_to_png
 from supabase_client import SupabaseClient
 from routes.auth_routes import auth_router
+from routes.admin_routes import admin_router 
 
 # Create tables
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 # Create directories
 os.makedirs("uploads", exist_ok=True)
@@ -78,6 +79,8 @@ app.mount(
 )
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/reports", StaticFiles(directory="reports"), name="reports")
+app.include_router(auth_router, prefix='/auth')
+app.include_router(admin_router) 
 
 # Initialize services
 ai_service = AIService()
@@ -151,8 +154,8 @@ async def analyze_image(
             case_id=patient.case_id,
             patient_id=patient_id,
             image_path=file_path,
-            lesion_probability=analysis_result["lesion_probability"],
-            overall_confidence=analysis_result["overall_confidence"],
+            lesion_probability=float(analysis_result["lesion_probability"]),
+            overall_confidence=float(analysis_result["overall_confidence"]),
             confidence_level=analysis_result["confidence_level"],
             analysis_data=json.dumps(analysis_result),
             ai_explanation=""  # Empty for now, will be filled by dedicated call

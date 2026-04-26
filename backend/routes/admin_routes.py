@@ -21,7 +21,6 @@ from models.models import Patient, Analysis, Report
 from service.auth_service import auth_service
 from supabase_client import SupabaseClient
 
-logger = logging.getLogger("admin.routes")
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -330,7 +329,6 @@ async def list_all_users(
         res = SupabaseClient.table("profiles").select("*").execute()
         rows = res.data or []
     except Exception as exc:
-        logger.error("Failed to fetch users: %s", exc)
         raise HTTPException(status_code=500, detail="Could not fetch users.")
 
     # Also try to get emails from auth (admin client needed)
