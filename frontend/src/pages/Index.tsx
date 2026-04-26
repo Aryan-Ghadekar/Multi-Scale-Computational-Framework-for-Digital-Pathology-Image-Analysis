@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { WSIViewer } from "@/components/WSIViewer";
 import { ConfidenceDisplay } from "@/components/ConfidenceDisplay";
 import { ExplainabilityPanel } from "@/components/ExplainabilityPanel";
@@ -7,9 +7,10 @@ import { PatientSidebar } from "@/components/PatientSidebar";
 import { AnalysisMetricsPanel } from "@/components/AnalysisMetricsPanel";
 import { RegionSidebar } from "@/components/RegionSidebar";
 import type { Region } from "@/components/RegionOverlay";
-import { Microscope, Activity, Loader2, MapPin } from "lucide-react";
+import { Microscope, Activity, Loader2, MapPin, LogOut, ArrowBigLeftIcon, User } from "lucide-react";
 import { analysisApi } from "@/services/api";
 import { toast } from "sonner";
+import { UserCard } from "@/components/UserCard";
 
 const Index = () => {
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -18,8 +19,10 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [activeRegionId, setActiveRegionId] = useState<string | undefined>(undefined);
+  const [user, setUser] = useState(null);
   const [jumpTarget, setJumpTarget] = useState<Region | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const { imageFile, patientData, patientId } = location.state || {};
@@ -29,6 +32,7 @@ const Index = () => {
       handleAnalysis(patientId, imageFile);
     }
   }, [location]);
+
 
   const handleAnalysis = async (patientId: number, imageFile: File) => {
     setIsAnalyzing(true);
@@ -42,6 +46,25 @@ const Index = () => {
       setIsAnalyzing(false);
     }
   };
+
+  const BASE = "http://localhost:8000";
+
+  async function adminFetch(path: string, opts: RequestInit = {}) {
+    const token = localStorage.getItem("access_token") || "";
+    const res = await fetch(`${BASE}${path}`, {
+      ...opts,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opts.headers || {}),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
 
   const handleRegenerateExplanation = async (analysisId: number, specificQuestion?: string) => {
     if (!analysisId) {
@@ -117,6 +140,22 @@ const Index = () => {
     if (!showHeatmap) setShowHeatmap(true);
   }, [showHeatmap]);
 
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    navigate("/login");
+  };
+
+  const handleBack = () => {
+    navigate("/");
+  };
+
+  const getUserinfo = useCallback(async () => {
+    setUser(await adminFetch("/auth/auth/me"));
+  }, [setUser]);
+
+  useEffect(() => { getUserinfo(); }, [getUserinfo]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* ── Header ── */}
@@ -133,6 +172,12 @@ const Index = () => {
               <h1 className="text-base font-bold text-foreground leading-none">PathAI Pro</h1>
               <p className="text-[10px] text-muted-foreground mt-0.5">Digital Pathology Analysis Platform</p>
             </div>
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border hover:border-destructive/30 transition-all"
+            >
+              <ArrowBigLeftIcon className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {/* Live status */}
@@ -168,9 +213,12 @@ const Index = () => {
                 <span className="font-semibold text-foreground font-mono">{analysisData.case_id}</span>
               </div>
             )}
+            <UserCard user={user} onLogout={handleLogout} />
           </div>
         </div>
       </header>
+
+
 
       {/* ── Main Content ── */}
       <div className="flex-1 flex overflow-hidden">
@@ -228,7 +276,8 @@ const Index = () => {
               patientData={location.state?.patientData}
               analysisData={analysisData}
               onRequestNewExplanation={(question?: string) =>
-                analysisData?.id && handleRegenerateExplanation(analysisData.id, question)
+                // analysisData?.id && 
+                handleRegenerateExplanation(analysisData.id, question)
               }
             />
           </div>
