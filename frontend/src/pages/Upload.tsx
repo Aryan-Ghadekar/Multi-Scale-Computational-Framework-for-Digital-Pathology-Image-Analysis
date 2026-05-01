@@ -26,6 +26,7 @@ const UploadPage = () => {
     contact_info: '',
     medical_history: ''
   });
+  const [createdPatientId, setCreatedPatientId] = useState<number | null>(null);
   const [user, setUser] = useState(null);
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
 
@@ -49,15 +50,34 @@ const UploadPage = () => {
   }
 
 
+  // const handlePatientSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsCreatingPatient(true);
+
+  //   try {
+  //     const patient = await patientApi.create({
+  //       ...patientData,
+  //       age: parseInt(patientData.age)
+  //     });
+  //     toast.success("Patient created successfully");
+  //     setActiveTab('upload');
+  //   } catch (error) {
+  //     toast.error("Failed to create patient");
+  //   } finally {
+  //     setIsCreatingPatient(false);
+  //   }
+  // };
+
   const handlePatientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingPatient(true);
-
     try {
       const patient = await patientApi.create({
         ...patientData,
         age: parseInt(patientData.age)
       });
+
+      setCreatedPatientId(patient.id); // ← save the real ID from API response
       toast.success("Patient created successfully");
       setActiveTab('upload');
     } catch (error) {
@@ -100,17 +120,36 @@ const UploadPage = () => {
     });
   };
 
+  // const handleAnalyze = () => {
+  //   if (!selectedFile) {
+  //     toast.error("Please select an image first");
+  //     return;
+  //   }
+  //   const mockPatientId = 1;
+  //   navigate("/analysis", {
+  //     state: {
+  //       imageFile: selectedFile,
+  //       patientData: patientData,
+  //       patientId: mockPatientId
+  //     }
+  //   });
+  // };
+
   const handleAnalyze = () => {
     if (!selectedFile) {
       toast.error("Please select an image first");
       return;
     }
-    const mockPatientId = 1;
+    if (!createdPatientId) {
+      toast.error("Please create a patient record first");
+      setActiveTab('patient'); // send them back to step 1
+      return;
+    }
     navigate("/analysis", {
       state: {
         imageFile: selectedFile,
         patientData: patientData,
-        patientId: mockPatientId
+        patientId: createdPatientId  // ← real ID now
       }
     });
   };
@@ -238,7 +277,7 @@ const UploadPage = () => {
             <p className="text-base font-bold text-foreground">PathAI Pro</p>
             <p className="text-xs text-muted-foreground">Digital Pathology Platform</p>
           </div>
-          <div className="justify-end"> 
+          <div className="justify-end">
             <UserCard user={user} onLogout={handleLogout} />
           </div>
         </header>
