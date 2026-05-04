@@ -8,6 +8,10 @@ import {
   ShieldCheck, Stethoscope, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDispatch, useSelector } from "react-redux";
+import { persistor, RootState, type AppDispatch } from "@/app/store";
+import { clearProfile } from "@/features/user/profileSlice";
+import { logout } from "@/features/auth/authSlice";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -73,11 +77,9 @@ interface UserSummary {
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
-
 const BASE = "http://localhost:8000";
 
-async function adminFetch(path: string, opts: RequestInit = {}) {
-  const token = localStorage.getItem("access_token") || "";
+async function adminFetch(path: string,  token: string, opts: RequestInit = {}) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
     headers: {
@@ -103,12 +105,12 @@ const RiskBadge = ({ prob }: { prob?: number }) => {
       </span>
     );
   const isHigh = prob >= 0.7;
-  const isMed  = prob >= 0.4;
+  const isMed = prob >= 0.4;
   const cls = isHigh
     ? "bg-red-50 text-red-600 border-red-200"
     : isMed
-    ? "bg-amber-50 text-amber-600 border-amber-200"
-    : "bg-success/10 text-success border-success/30";
+      ? "bg-amber-50 text-amber-600 border-amber-200"
+      : "bg-success/10 text-success border-success/30";
   return (
     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${cls}`}>
       {isHigh ? "HIGH" : isMed ? "MED" : "LOW"} {(prob * 100).toFixed(0)}%
@@ -120,14 +122,14 @@ const RiskBadge = ({ prob }: { prob?: number }) => {
 
 const RoleBadge = ({ role }: { role?: string }) => {
   const map: Record<string, string> = {
-    admin:       "bg-warning/10 text-warning border-warning/30",
+    admin: "bg-warning/10 text-warning border-warning/30",
     pathologist: "bg-primary/10 text-primary border-primary/30",
-    researcher:  "bg-success/10 text-success border-success/30",
+    researcher: "bg-success/10 text-success border-success/30",
   };
   const icons: Record<string, React.ReactNode> = {
-    admin:       <ShieldCheck className="w-2.5 h-2.5" />,
+    admin: <ShieldCheck className="w-2.5 h-2.5" />,
     pathologist: <Stethoscope className="w-2.5 h-2.5" />,
-    researcher:  <FlaskConical className="w-2.5 h-2.5" />,
+    researcher: <FlaskConical className="w-2.5 h-2.5" />,
   };
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${map[role || ""] || "bg-muted text-muted-foreground border-border"}`}>
@@ -177,11 +179,10 @@ const Th = ({ children }: { children: React.ReactNode }) => (
 const FilterPill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
   <button
     onClick={onClick}
-    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 ${
-      active
-        ? "bg-primary/10 border-primary/30 text-primary"
-        : "border-border text-muted-foreground hover:border-primary/20 hover:text-foreground bg-muted/30"
-    }`}
+    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 ${active
+      ? "bg-primary/10 border-primary/30 text-primary"
+      : "border-border text-muted-foreground hover:border-primary/20 hover:text-foreground bg-muted/30"
+      }`}
   >
     {children}
   </button>
@@ -189,48 +190,51 @@ const FilterPill = ({ active, onClick, children }: { active: boolean; onClick: (
 
 // ── Tab config ────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "patients" | "analyses" | "reports" ;
+type Tab = "overview" | "patients" | "analyses" | "reports";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
-  { id: "overview",  label: "Overview",  icon: BarChart3    },
-  { id: "patients",  label: "Patients",  icon: Users        },
-  { id: "analyses",  label: "Analyses",  icon: FlaskConical },
-  { id: "reports",   label: "Reports",   icon: FileText     }
+  { id: "overview", label: "Overview", icon: BarChart3 },
+  { id: "patients", label: "Patients", icon: Users },
+  { id: "analyses", label: "Analyses", icon: FlaskConical },
+  { id: "reports", label: "Reports", icon: FileText }
 ];
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const AdminPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab]             = useState<Tab>("overview");
-  const [stats, setStats]                     = useState<DashboardStats | null>(null);
-  const [patients, setPatients]               = useState<PatientSummary[]>([]);
-  const [analyses, setAnalyses]               = useState<AnalysisSummary[]>([]);
-  const [reports, setReports]                 = useState<ReportSummary[]>([]);
-  const [users, setUsers]                     = useState<UserSummary[]>([]);
-  const [loading, setLoading]                 = useState(false);
-  const [search, setSearch]                   = useState("");
-  const [riskFilter, setRiskFilter]           = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [patients, setPatients] = useState<PatientSummary[]>([]);
+  const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
+  const [reports, setReports] = useState<ReportSummary[]>([]);
+  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [riskFilter, setRiskFilter] = useState("");
   const [finalizedFilter, setFinalizedFilter] = useState("");
-  const [expandedRow, setExpandedRow]         = useState<number | null>(null);
-  const [deleting, setDeleting]               = useState<number | null>(null);
-  const [finalizing, setFinalizing]           = useState<number | null>(null);
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [finalizing, setFinalizing] = useState<number | null>(null);
+  const dispatch = useDispatch<AppDispatch>();
+
+  const auth = useSelector((state: RootState) => state.auth);
 
   const load = useCallback(async (tab: Tab) => {
     setLoading(true);
     try {
       if (tab === "overview") {
-        setStats(await adminFetch("/admin/dashboard"));
+        setStats(await adminFetch("/admin/dashboard", auth.access_token));
       } else if (tab === "patients") {
         const qs = search ? `&search=${encodeURIComponent(search)}` : "";
-        setPatients(await adminFetch(`/admin/patients?limit=100${qs}`));
+        setPatients(await adminFetch(`/admin/patients?limit=100${qs}`, auth.access_token));
       } else if (tab === "analyses") {
         const qs = riskFilter ? `&risk_filter=${riskFilter}` : "";
-        setAnalyses(await adminFetch(`/admin/analyses?limit=100${qs}`));
+        setAnalyses(await adminFetch(`/admin/analyses?limit=100${qs}` , auth.access_token));
       } else if (tab === "reports") {
         const qs = finalizedFilter !== "" ? `&finalized=${finalizedFilter}` : "";
-        setReports(await adminFetch(`/admin/reports?limit=100${qs}`));
-      } 
+        setReports(await adminFetch(`/admin/reports?limit=100${qs}` , auth.access_token));
+      }
     } catch (err: any) {
       if (err.message.includes("401") || err.message.includes("403")) {
         toast.error("Admin access required.");
@@ -266,10 +270,23 @@ const AdminPage = () => {
     finally { setFinalizing(null); }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // 1. Stop persistence (VERY IMPORTANT)
+    persistor.pause();
+
+    // 2. Clear Redux state
+    dispatch(clearProfile());
+    dispatch(logout());
+
+    // 3. Purge persisted storage
+    await persistor.purge();
+
+    // 4. Clear tokens
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    navigate("/login");
+
+    // 5. Hard reload (guaranteed clean state)
+    window.location.href = "/login";
   };
 
   return (
@@ -304,11 +321,10 @@ const AdminPage = () => {
               <button
                 key={t.id}
                 onClick={() => { setActiveTab(t.id); setExpandedRow(null); }}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                  activeTab === t.id
-                    ? "bg-primary/10 border border-primary/30 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent"
-                }`}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${activeTab === t.id
+                  ? "bg-primary/10 border border-primary/30 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent"
+                  }`}
               >
                 <t.icon className="w-3.5 h-3.5" />
                 {t.label}
@@ -350,25 +366,25 @@ const AdminPage = () => {
             {stats ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <StatCard icon={Users}       label="Total Patients"    value={stats.total_patients}
+                  <StatCard icon={Users} label="Total Patients" value={stats.total_patients}
                     gradient="linear-gradient(135deg, hsl(187 85% 40%), hsl(200 80% 45%))" />
-                  <StatCard icon={FlaskConical} label="Total Analyses"    value={stats.total_analyses}
+                  <StatCard icon={FlaskConical} label="Total Analyses" value={stats.total_analyses}
                     sub={`${stats.analyses_today} today`} trend={`${stats.analyses_this_week} this week`}
                     gradient="linear-gradient(135deg, hsl(160 70% 40%), hsl(145 65% 42%))" />
-                  <StatCard icon={FileText}    label="Total Reports"     value={stats.total_reports}
+                  <StatCard icon={FileText} label="Total Reports" value={stats.total_reports}
                     sub={`${stats.pending_reports} pending`}
                     gradient="linear-gradient(135deg, hsl(40 90% 52%), hsl(30 88% 50%))" />
-                  <StatCard icon={UserCheck}   label="Registered Users"  value={stats.total_users}
+                  <StatCard icon={UserCheck} label="Registered Users" value={stats.total_users}
                     gradient="linear-gradient(135deg, hsl(270 70% 55%), hsl(250 65% 52%))" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <StatCard icon={AlertTriangle} label="High Risk Cases"        value={stats.high_risk_cases}
+                  <StatCard icon={AlertTriangle} label="High Risk Cases" value={stats.high_risk_cases}
                     sub="Lesion probability ≥ 70%"
                     gradient="linear-gradient(135deg, hsl(0 75% 55%), hsl(15 80% 50%))" />
-                  <StatCard icon={Activity}      label="Avg Lesion Probability" value={`${(stats.avg_lesion_probability * 100).toFixed(1)}%`}
+                  <StatCard icon={Activity} label="Avg Lesion Probability" value={`${(stats.avg_lesion_probability * 100).toFixed(1)}%`}
                     gradient="linear-gradient(135deg, hsl(25 85% 52%), hsl(35 82% 50%))" />
-                  <StatCard icon={CheckCircle2}  label="Finalized Reports"      value={stats.finalized_reports}
+                  <StatCard icon={CheckCircle2} label="Finalized Reports" value={stats.finalized_reports}
                     sub={`${stats.pending_reports} still pending`}
                     gradient="linear-gradient(135deg, hsl(160 70% 40%), hsl(145 65% 42%))" />
                 </div>
@@ -378,10 +394,10 @@ const AdminPage = () => {
                   <h3 className="text-xs font-bold text-foreground mb-5 uppercase tracking-widest">Platform Activity</h3>
                   <div className="space-y-4">
                     {[
-                      { label: "Analyses Today",     val: stats.analyses_today,    max: Math.max(stats.analyses_this_week, 1), color: "hsl(187 85% 40%)" },
-                      { label: "Analyses This Week", val: stats.analyses_this_week, max: Math.max(stats.total_analyses, 1),    color: "hsl(160 70% 40%)" },
-                      { label: "High Risk Cases",    val: stats.high_risk_cases,   max: Math.max(stats.total_analyses, 1),     color: "hsl(0 72% 51%)"   },
-                      { label: "Finalized Reports",  val: stats.finalized_reports,  max: Math.max(stats.total_reports, 1),      color: "hsl(160 70% 40%)" },
+                      { label: "Analyses Today", val: stats.analyses_today, max: Math.max(stats.analyses_this_week, 1), color: "hsl(187 85% 40%)" },
+                      { label: "Analyses This Week", val: stats.analyses_this_week, max: Math.max(stats.total_analyses, 1), color: "hsl(160 70% 40%)" },
+                      { label: "High Risk Cases", val: stats.high_risk_cases, max: Math.max(stats.total_analyses, 1), color: "hsl(0 72% 51%)" },
+                      { label: "Finalized Reports", val: stats.finalized_reports, max: Math.max(stats.total_reports, 1), color: "hsl(160 70% 40%)" },
                     ].map(row => (
                       <div key={row.label} className="flex items-center gap-4">
                         <span className="text-xs text-muted-foreground w-44 flex-shrink-0">{row.label}</span>
@@ -436,7 +452,7 @@ const AdminPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    {["Case ID","Name","Age / Gender","Analyses","Reports","Latest Risk","Registered",""].map(h => <Th key={h}>{h}</Th>)}
+                    {["Case ID", "Name", "Age / Gender", "Analyses", "Reports", "Latest Risk", "Registered", ""].map(h => <Th key={h}>{h}</Th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -516,10 +532,10 @@ const AdminPage = () => {
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 {[
-                  { val: "",       label: "All"    },
-                  { val: "high",   label: "High"   },
+                  { val: "", label: "All" },
+                  { val: "high", label: "High" },
                   { val: "medium", label: "Medium" },
-                  { val: "low",    label: "Low"    },
+                  { val: "low", label: "Low" },
                 ].map(f => (
                   <FilterPill key={f.val} active={riskFilter === f.val}
                     onClick={() => { setRiskFilter(f.val); setTimeout(() => load("analyses"), 0); }}>
@@ -533,7 +549,7 @@ const AdminPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    {["ID","Case ID","Patient","Lesion Prob","Confidence","Risk","Date",""].map(h => <Th key={h}>{h}</Th>)}
+                    {["ID", "Case ID", "Patient", "Lesion Prob", "Confidence", "Risk", "Date", ""].map(h => <Th key={h}>{h}</Th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -610,7 +626,7 @@ const AdminPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    {["ID","Case ID","Patient","Analysis","Status","Generated",""].map(h => <Th key={h}>{h}</Th>)}
+                    {["ID", "Case ID", "Patient", "Analysis", "Status", "Generated", ""].map(h => <Th key={h}>{h}</Th>)}
                   </tr>
                 </thead>
                 <tbody>

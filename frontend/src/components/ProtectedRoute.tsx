@@ -1,23 +1,27 @@
 import { Navigate } from "react-router-dom";
 import { ReactNode, useEffect } from "react";
 import { toast } from "sonner";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/app/store";
 
 type ProtectedRouteProps = {
   children: ReactNode;
 };
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const token = localStorage.getItem("access_token");
+  const isAuthenticated = useSelector(
+    (state: RootState) => state.auth.isAuthenticated
+  );
 
   useEffect(() => {
-    if (!token) {
+    if (!isAuthenticated) {
       toast.info("Please login first!!!", {
         id: "login-nudge",
       });
     }
-  }, [token]);
+  }, [isAuthenticated]);
 
-  if (!token) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

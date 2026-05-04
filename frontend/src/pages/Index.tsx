@@ -11,6 +11,11 @@ import { Microscope, Activity, Loader2, MapPin, LogOut, ArrowBigLeftIcon, User }
 import { analysisApi } from "@/services/api";
 import { toast } from "sonner";
 import { UserCard } from "@/components/UserCard";
+import { persistor, type RootState } from "@/app/store";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch } from "@/app/store";
+import { clearProfile } from "@/features/user/profileSlice";
+import { logout } from "@/features/auth/authSlice";
 
 const Index = () => {
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -19,10 +24,14 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [activeRegionId, setActiveRegionId] = useState<string | undefined>(undefined);
-  const [user, setUser] = useState(null);
   const [jumpTarget, setJumpTarget] = useState<Region | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
+
+  console.log("Index component rendered");
+  const ProfileState = useSelector((state: RootState) => state.profile);
+  console.log("profileStatusState:", ProfileState);
 
   useEffect(() => {
     const { imageFile, patientData, patientId } = location.state || {};
@@ -47,24 +56,24 @@ const Index = () => {
     }
   };
 
-  const BASE = "http://localhost:8000";
+  // const BASE = "http://localhost:8000";
 
-  async function adminFetch(path: string, opts: RequestInit = {}) {
-    const token = localStorage.getItem("access_token") || "";
-    const res = await fetch(`${BASE}${path}`, {
-      ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(opts.headers || {}),
-      },
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${res.status}`);
-    }
-    return res.json();
-  }
+  // async function adminFetch(path: string, opts: RequestInit = {}) {
+  //   const token = localStorage.getItem("access_token") || "";
+  //   const res = await fetch(`${BASE}${path}`, {
+  //     ...opts,
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       Authorization: `Bearer ${token}`,
+  //       ...(opts.headers || {}),
+  //     },
+  //   });
+  //   if (!res.ok) {
+  //     const err = await res.json().catch(() => ({}));
+  //     throw new Error(err.detail || `HTTP ${res.status}`);
+  //   }
+  //   return res.json();
+  // }
 
   const handleRegenerateExplanation = async (analysisId: number, specificQuestion?: string) => {
     if (!analysisId) {
@@ -140,21 +149,32 @@ const Index = () => {
     if (!showHeatmap) setShowHeatmap(true);
   }, [showHeatmap]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    navigate("/login");
-  };
-
   const handleBack = () => {
     navigate("/");
   };
 
-  const getUserinfo = useCallback(async () => {
-    setUser(await adminFetch("/auth/auth/me"));
-  }, [setUser]);
+  const handleLogout = async () => {
+    // 1. Clear Redux
+    dispatch(clearProfile());
+    dispatch(logout());
 
-  useEffect(() => { getUserinfo(); }, [getUserinfo]);
+    await persistor.purge();
+
+    // 2. Clear storage (VERY IMPORTANT)
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+
+    // 3. Redirect
+    navigate("/login");
+  };
+
+  const user = useSelector((state: RootState) => state.profile.profile);
+
+  // const getUserinfo = useCallback(async () => {
+  //   setUser(await adminFetch("/auth/auth/me"));
+  // }, [setUser]);
+
+  // useEffect(() => { getUserinfo(); }, [getUserinfo]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
