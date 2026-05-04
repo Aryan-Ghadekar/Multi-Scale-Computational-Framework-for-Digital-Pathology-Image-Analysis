@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Microscope, Mail, Lock, Eye, EyeOff, Loader2, ChevronDown, ShieldCheck, FlaskConical, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import { loginUser } from "@/services/authapi";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch } from "@/app/store";
+import type { RootState } from "@/app/store";
+import { updateAuthState } from "@/features/auth/authSlice";
+import { setProfile } from "@/features/user/profileSlice";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Role = "admin" | "researcher" | "pathologist";
@@ -61,8 +66,8 @@ const RoleDropdown = ({ selectedRole, onChange }: RoleDropdownProps) => {
                 type="button"
                 onClick={() => setOpen((o) => !o)}
                 className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border text-sm transition-all duration-200 ${selectedRole
-                        ? "bg-card border-primary/40 text-foreground"
-                        : "bg-muted/40 border-border text-muted-foreground"
+                    ? "bg-card border-primary/40 text-foreground"
+                    : "bg-muted/40 border-border text-muted-foreground"
                     } hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20`}
             >
                 {selected ? (
@@ -158,6 +163,14 @@ const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const dispatch = useDispatch<AppDispatch>();
+    const { isAuthenticated, user } = useSelector(
+        (state: RootState) => state.auth.isAuthenticated
+    );
+
+    const authState = useSelector((state: RootState) => state.auth);
+
+    console.log("authStatusState:", authState);
 
     const validate = () => {
         const e: Record<string, string> = {};
@@ -181,9 +194,13 @@ const LoginPage = () => {
                 role: selectedRole!,
             });
 
-            localStorage.setItem("access_token", data.access_token);
-            localStorage.setItem("refresh_token", data.refresh_token);
+            dispatch(updateAuthState({
+                user: data.user,
+                access_token: data.access_token,
+                refresh_token: data.refresh_token
+            }));
 
+            dispatch(setProfile(data.user));
             toast.success("Login successful");
             navigate(data.user.role === "admin" ? "/admin" : "/");
         } catch (err: any) {
@@ -192,6 +209,12 @@ const LoginPage = () => {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            navigate(user.role === "admin" ? "/admin" : "/");
+        }
+    }, [isAuthenticated, user, navigate]);
     return (
         <div className="min-h-screen bg-background flex flex-col">
             {/* Header */}

@@ -13,6 +13,11 @@ import { toast } from "sonner";
 import { patientApi } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { UserCard } from "@/components/UserCard";
+import { persistor } from "@/app/store";
+import { logout } from "@/features/auth/authSlice";
+import { clearProfile } from "@/features/user/profileSlice";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/app/store";
 
 const UploadPage = () => {
   const navigate = useNavigate();
@@ -27,27 +32,32 @@ const UploadPage = () => {
     medical_history: ''
   });
   const [createdPatientId, setCreatedPatientId] = useState<number | null>(null);
-  const [user, setUser] = useState(null);
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
 
-  const BASE = "http://localhost:8000";
+  // const BASE = "http://localhost:8000";
 
-  async function adminFetch(path: string, opts: RequestInit = {}) {
-    const token = localStorage.getItem("access_token") || "";
-    const res = await fetch(`${BASE}${path}`, {
-      ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(opts.headers || {}),
-      },
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${res.status}`);
-    }
-    return res.json();
-  }
+  const dispatch = useDispatch<AppDispatch>();
+
+  console.log("Index component rendered");
+  const ProfileState = useSelector((state: RootState) => state.profile);
+  console.log("profileStatusState:", ProfileState);
+
+  // async function adminFetch(path: string, opts: RequestInit = {}) {
+  //   const token = localStorage.getItem("access_token") || "";
+  //   const res = await fetch(`${BASE}${path}`, {
+  //     ...opts,
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       Authorization: `Bearer ${token}`,
+  //       ...(opts.headers || {}),
+  //     },
+  //   });
+  //   if (!res.ok) {
+  //     const err = await res.json().catch(() => ({}));
+  //     throw new Error(err.detail || `HTTP ${res.status}`);
+  //   }
+  //   return res.json();
+  // }
 
 
   // const handlePatientSubmit = async (e: React.FormEvent) => {
@@ -172,17 +182,32 @@ const UploadPage = () => {
     },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // 1. Stop persistence (VERY IMPORTANT)
+    persistor.pause();
+
+    // 2. Clear Redux state
+    dispatch(clearProfile());
+    dispatch(logout());
+
+    // 3. Purge persisted storage
+    await persistor.purge();
+
+    // 4. Clear tokens
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    navigate("/login");
+
+    // 5. Hard reload (guaranteed clean state)
+    window.location.href = "/login";
   };
 
-  const getUserinfo = useCallback(async () => {
-    setUser(await adminFetch("/auth/auth/me"));
-  }, [setUser]);
+  // const getUserinfo = useCallback(async () => {
+  //   setUser(await adminFetch("/auth/auth/me"));
+  // }, [setUser]);
 
-  useEffect(() => { getUserinfo(); }, [getUserinfo]);
+  // useEffect(() => { getUserinfo(); }, [getUserinfo]);
+
+  const user = useSelector((state: RootState) => state.profile.profile);
 
   return (
     <div className="min-h-screen flex overflow-hidden bg-background">

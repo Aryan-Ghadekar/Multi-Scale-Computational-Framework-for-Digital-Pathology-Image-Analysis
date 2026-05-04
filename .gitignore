@@ -16,3 +16,5 @@ backend/.venv/
 *.png
 *.pdf
 *.jpg
+
+backend/resnet18.zip
