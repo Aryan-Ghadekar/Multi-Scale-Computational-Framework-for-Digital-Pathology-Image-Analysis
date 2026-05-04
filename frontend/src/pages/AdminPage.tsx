@@ -79,7 +79,7 @@ interface UserSummary {
 // ── API ───────────────────────────────────────────────────────────────────────
 const BASE = "http://localhost:8000";
 
-async function adminFetch(path: string,  token: string, opts: RequestInit = {}) {
+async function adminFetch(path: string, token: string, opts: RequestInit = {}) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
     headers: {
@@ -196,7 +196,7 @@ const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "patients", label: "Patients", icon: Users },
   { id: "analyses", label: "Analyses", icon: FlaskConical },
-  { id: "reports", label: "Reports", icon: FileText }
+  { id: "reports", label: "Reports", icon: FileText },
 ];
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -230,10 +230,10 @@ const AdminPage = () => {
         setPatients(await adminFetch(`/admin/patients?limit=100${qs}`, auth.access_token));
       } else if (tab === "analyses") {
         const qs = riskFilter ? `&risk_filter=${riskFilter}` : "";
-        setAnalyses(await adminFetch(`/admin/analyses?limit=100${qs}` , auth.access_token));
+        setAnalyses(await adminFetch(`/admin/analyses?limit=100${qs}`, auth.access_token));
       } else if (tab === "reports") {
         const qs = finalizedFilter !== "" ? `&finalized=${finalizedFilter}` : "";
-        setReports(await adminFetch(`/admin/reports?limit=100${qs}` , auth.access_token));
+        setReports(await adminFetch(`/admin/reports?limit=100${qs}`, auth.access_token));
       }
     } catch (err: any) {
       if (err.message.includes("401") || err.message.includes("403")) {
@@ -245,15 +245,15 @@ const AdminPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, search, riskFilter, finalizedFilter]);
+  }, [search, riskFilter, finalizedFilter, auth.access_token]);
 
-  useEffect(() => { load(activeTab); }, [activeTab]);
+  useEffect(() => { load(activeTab); }, [activeTab, load]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Permanently delete this patient and all associated data?")) return;
     setDeleting(id);
     try {
-      await adminFetch(`/admin/patients/${id}`, { method: "DELETE" });
+      await adminFetch(`/admin/patients/${id}`, auth.access_token, { method: "DELETE" });
       toast.success("Patient deleted.");
       setPatients(prev => prev.filter(p => p.id !== id));
     } catch (err: any) { toast.error(err.message); }
@@ -263,7 +263,7 @@ const AdminPage = () => {
   const handleFinalize = async (id: number) => {
     setFinalizing(id);
     try {
-      await adminFetch(`/admin/reports/${id}/finalize`, { method: "PATCH" });
+      await adminFetch(`/admin/reports/${id}/finalize`, auth.access_token, { method: "PATCH" });
       toast.success("Report finalized.");
       setReports(prev => prev.map(r => r.id === id ? { ...r, is_finalized: true } : r));
     } catch (err: any) { toast.error(err.message); }
