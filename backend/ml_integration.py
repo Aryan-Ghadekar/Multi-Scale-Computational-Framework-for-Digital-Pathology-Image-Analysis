@@ -259,7 +259,8 @@ class PathMLService:
         # --- Lesion Probability Formula ---
         # P_lesion = (mean_tumor_conf × tumor_ratio) + (0.1 × mean_conf_all)
         lesion_probability = (mean_tumor_conf * tumor_ratio) + (0.1 * mean_conf_all)
-
+        lesion_probability = float(np.clip(lesion_probability, 0.0, 1.0))
+        
         # Convert to %
         lesion_probability_percent = lesion_probability * 100
         overall_confidence = mean_conf_all * 100

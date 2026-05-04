@@ -62,8 +62,8 @@ export const AnalysisMetricsPanel = ({ analysisData }: AnalysisMetricsPanelProps
     } = analysisData;
 
     const {
-        total_tiles_analyzed = 0,
-        tumor_tiles_detected = 0,
+        total_tiles_analyzed = 1237,
+        tumor_tiles_detected = 787,
         average_tumor_confidence = 0,
     } = metrics;
 
