@@ -20,24 +20,35 @@ from reportlab.platypus.flowables import Flowable
 
 
 # ════════════════════════════════════════════════════════════════════════════
+#  MARGINS & LAYOUT CONSTANTS  (single source of truth)
+# ════════════════════════════════════════════════════════════════════════════
+
+LEFT_MARGIN  = 20 * mm
+RIGHT_MARGIN = 20 * mm
+TOP_MARGIN   = 58          # points
+BOTTOM_MARGIN = 42         # points
+
+PAGE_W, PAGE_H = A4
+# Usable content width derived from page width minus both margins
+CONTENT_W = PAGE_W - LEFT_MARGIN - RIGHT_MARGIN   # ≈ 555 pt for A4
+
+
+# ════════════════════════════════════════════════════════════════════════════
 #  DESIGN TOKENS
 # ════════════════════════════════════════════════════════════════════════════
 
-C_HEADER_BG = colors.HexColor('#0D2137')   # very dark navy
-C_PRIMARY   = colors.HexColor('#1B4F72')   # deep navy
-C_ACCENT    = colors.HexColor('#2E86AB')   # sky blue
-C_SUCCESS   = colors.HexColor('#1E8449')   # green
-C_WARNING   = colors.HexColor('#D68910')   # amber
-C_DANGER    = colors.HexColor('#CB4335')   # red
-C_LIGHT_BG  = colors.HexColor('#F2F6FA')   # panel bg
+C_HEADER_BG = colors.HexColor('#0D2137')
+C_PRIMARY   = colors.HexColor('#1B4F72')
+C_ACCENT    = colors.HexColor('#2E86AB')
+C_SUCCESS   = colors.HexColor('#1E8449')
+C_WARNING   = colors.HexColor('#D68910')
+C_DANGER    = colors.HexColor('#CB4335')
+C_LIGHT_BG  = colors.HexColor('#F2F6FA')
 C_BORDER    = colors.HexColor('#D5E8F0')
 C_TEXT      = colors.HexColor('#1A1A2E')
 C_MUTED     = colors.HexColor('#6C757D')
 C_WHITE     = colors.white
 C_STRIPE    = colors.HexColor('#F7FBFF')
-
-PAGE_W, PAGE_H = A4
-CONTENT_W = PAGE_W - 40 * mm   # usable content width
 
 
 def _risk_color(probability: float):
@@ -49,7 +60,6 @@ def _risk_color(probability: float):
 
 
 def _confidence_label(level: str):
-    """Returns (display_label, color) for a confidence level string."""
     mapping = {
         'High':            ('HIGH CONFIDENCE',     C_SUCCESS),
         'Moderate':        ('MODERATE CONFIDENCE', C_WARNING),
@@ -65,21 +75,18 @@ def _confidence_label(level: str):
 
 class SectionHeader(Flowable):
     """Left-accented section title bar."""
-    def __init__(self, text, width=CONTENT_W, color=None):
+    def __init__(self, text, width=None, color=None):
         super().__init__()
-        self.text = text
-        self.width = width
+        self.text  = text
+        self.width = width or CONTENT_W   # default to full content width
         self.color = color or C_PRIMARY
 
     def draw(self):
         c = self.canv
-        # Thick left accent
         c.setFillColor(self.color)
         c.rect(0, 2, 4, 18, fill=1, stroke=0)
-        # Light underline
         c.setFillColor(colors.HexColor('#E8EFF6'))
         c.rect(6, 2, self.width - 6, 18, fill=1, stroke=0)
-        # Text
         c.setFillColor(self.color)
         c.setFont('Helvetica-Bold', 11)
         c.drawString(14, 6, self.text.upper())
@@ -89,15 +96,17 @@ class SectionHeader(Flowable):
 
 
 class HorizontalBar(Flowable):
-    """Animated-style progress bar for probability/confidence scores."""
-    def __init__(self, value: float, width=CONTENT_W, height=16,
+    """Progress bar for probability/confidence scores."""
+    LABEL_W = 42   # fixed pixels reserved for the "xx.x%" label on the right
+
+    def __init__(self, value: float, width=None, height=16,
                  bar_color=None, show_label=True):
         super().__init__()
-        self.value = max(0.0, min(100.0, float(value)))
-        self.track_w = width - 55
-        self.width = width
-        self.height = height
-        self.bar_color = bar_color or _risk_color(value)
+        self.value      = max(0.0, min(100.0, float(value)))
+        self.width      = width or CONTENT_W
+        self.track_w    = self.width - self.LABEL_W
+        self.height     = height
+        self.bar_color  = bar_color or _risk_color(value)
         self.show_label = show_label
 
     def draw(self):
@@ -113,44 +122,39 @@ class HorizontalBar(Flowable):
         if fill_w > 0:
             c.setFillColor(self.bar_color)
             c.roundRect(0, 0, max(fill_w, r * 2), self.height, r, fill=1, stroke=0)
-            # White shine strip at top
             c.setFillColor(colors.HexColor('#FFFFFF40'))
-            c.rect(r, self.height * 0.6, max(fill_w - r * 2, 0), self.height * 0.25,
-                   fill=1, stroke=0)
+            c.rect(r, self.height * 0.6, max(fill_w - r * 2, 0),
+                   self.height * 0.25, fill=1, stroke=0)
 
         if self.show_label:
             c.setFillColor(C_TEXT)
             c.setFont('Helvetica-Bold', 9)
-            c.drawString(self.track_w + 8, 4, f"{self.value:.1f}%")
+            c.drawString(self.track_w + 6, 4, f"{self.value:.1f}%")
 
     def wrap(self, *args):
         return (self.width, self.height + 4)
 
 
 class MetricCard(Flowable):
-    """A single KPI card with value, label, and colored top border."""
+    """KPI card with value, label, and colored top border."""
     def __init__(self, label, value, color, width=52 * mm, height=38):
         super().__init__()
-        self.label = label
-        self.value = value
-        self.color = color
-        self.width = width
+        self.label  = label
+        self.value  = value
+        self.color  = color
+        self.width  = width
         self.height = height
 
     def draw(self):
         c = self.canv
-        # Card background
         c.setFillColor(C_LIGHT_BG)
         c.roundRect(0, 0, self.width, self.height, 4, fill=1, stroke=0)
-        # Top accent line
         c.setFillColor(self.color)
         c.rect(0, self.height - 4, self.width, 4, fill=1, stroke=0)
-        # Value
         c.setFillColor(self.color)
         c.setFont('Helvetica-Bold', 13)
         val_w = c.stringWidth(str(self.value), 'Helvetica-Bold', 13)
         c.drawString((self.width - val_w) / 2, self.height - 22, str(self.value))
-        # Label
         c.setFillColor(C_MUTED)
         c.setFont('Helvetica', 7)
         lbl_w = c.stringWidth(self.label, 'Helvetica', 7)
@@ -161,33 +165,29 @@ class MetricCard(Flowable):
 
 
 # ════════════════════════════════════════════════════════════════════════════
-#  PAGE TEMPLATE (header + footer on every page)
+#  PAGE TEMPLATE  (header + footer on every page)
 # ════════════════════════════════════════════════════════════════════════════
 
 def _make_page_template(canvas_obj, doc):
     canvas_obj.saveState()
 
-    # ── Top header strip ─────────────────────────────────────────────────────
+    # Header strip
     canvas_obj.setFillColor(C_HEADER_BG)
     canvas_obj.rect(0, PAGE_H - 48, PAGE_W, 48, fill=1, stroke=0)
 
-    # Accent bar below header
     canvas_obj.setFillColor(C_ACCENT)
     canvas_obj.rect(0, PAGE_H - 50, PAGE_W, 3, fill=1, stroke=0)
 
-    # Logo area: colored pill
     canvas_obj.setFillColor(C_ACCENT)
     canvas_obj.roundRect(18, PAGE_H - 37, 72, 20, 10, fill=1, stroke=0)
     canvas_obj.setFillColor(C_WHITE)
     canvas_obj.setFont('Helvetica-Bold', 10)
     canvas_obj.drawString(25, PAGE_H - 30, 'PathAI Pro')
 
-    # Subtitle
     canvas_obj.setFillColor(colors.HexColor('#8BBFD8'))
     canvas_obj.setFont('Helvetica', 8)
     canvas_obj.drawString(98, PAGE_H - 28, 'Digital Pathology Analysis System')
 
-    # Right side — case info
     canvas_obj.setFillColor(C_WHITE)
     canvas_obj.setFont('Helvetica-Bold', 8)
     canvas_obj.drawRightString(PAGE_W - 18, PAGE_H - 26,
@@ -197,7 +197,7 @@ def _make_page_template(canvas_obj, doc):
     canvas_obj.drawRightString(PAGE_W - 18, PAGE_H - 38,
                                'CONFIDENTIAL — CLINICAL USE ONLY')
 
-    # ── Bottom footer ─────────────────────────────────────────────────────────
+    # Footer
     canvas_obj.setStrokeColor(C_BORDER)
     canvas_obj.setLineWidth(0.5)
     canvas_obj.line(18, 32, PAGE_W - 18, 32)
@@ -220,27 +220,27 @@ def _make_page_template(canvas_obj, doc):
 def _get_styles():
     base = getSampleStyleSheet()
     return {
-        'Normal': ParagraphStyle('RNormal', parent=base['Normal'],
-                                  fontSize=9, textColor=C_TEXT, leading=14),
-        'Center': ParagraphStyle('RCenter', parent=base['Normal'],
-                                  fontSize=9, alignment=TA_CENTER, textColor=C_TEXT),
-        'Small': ParagraphStyle('RSmall', parent=base['Normal'],
-                                 fontSize=8, textColor=C_TEXT, leading=12),
-        'Muted': ParagraphStyle('RMuted', parent=base['Normal'],
-                                 fontSize=8, textColor=C_MUTED, leading=13),
-        'Disclaimer': ParagraphStyle('RDisclaimer', parent=base['Normal'],
-                                      fontSize=7, textColor=C_MUTED, leading=11),
+        'Normal':      ParagraphStyle('RNormal',      parent=base['Normal'],
+                                      fontSize=9,  textColor=C_TEXT,  leading=14),
+        'Center':      ParagraphStyle('RCenter',      parent=base['Normal'],
+                                      fontSize=9,  alignment=TA_CENTER, textColor=C_TEXT),
+        'Small':       ParagraphStyle('RSmall',       parent=base['Normal'],
+                                      fontSize=8,  textColor=C_TEXT,  leading=12),
+        'Muted':       ParagraphStyle('RMuted',       parent=base['Normal'],
+                                      fontSize=8,  textColor=C_MUTED, leading=13),
+        'Disclaimer':  ParagraphStyle('RDisclaimer',  parent=base['Normal'],
+                                      fontSize=7,  textColor=C_MUTED, leading=11),
         'TableHeader': ParagraphStyle('RTableHeader', parent=base['Normal'],
-                                       fontSize=9, textColor=C_WHITE,
-                                       alignment=TA_CENTER),
-        'TableCell': ParagraphStyle('RTableCell', parent=base['Normal'],
-                                     fontSize=8, textColor=C_TEXT,
-                                     alignment=TA_CENTER, leading=12),
+                                      fontSize=9,  textColor=C_WHITE,
+                                      alignment=TA_CENTER),
+        'TableCell':   ParagraphStyle('RTableCell',   parent=base['Normal'],
+                                      fontSize=8,  textColor=C_TEXT,
+                                      alignment=TA_CENTER, leading=12),
         'Explanation': ParagraphStyle('RExplanation', parent=base['Normal'],
-                                       fontSize=9, textColor=C_TEXT, leading=15),
-        'RecTitle': ParagraphStyle('RRecTitle', parent=base['Normal'],
-                                    fontSize=9, textColor=C_WHITE,
-                                    alignment=TA_CENTER),
+                                      fontSize=9,  textColor=C_TEXT,  leading=15),
+        'RecTitle':    ParagraphStyle('RRecTitle',    parent=base['Normal'],
+                                      fontSize=9,  textColor=C_WHITE,
+                                      alignment=TA_CENTER),
     }
 
 
@@ -256,30 +256,33 @@ def _section_patient(patient_dict, styles):
     items.append(Spacer(1, 8))
 
     p = patient_dict
+    # 4 columns: label | value | label | value — sum must equal CONTENT_W
+    col_lbl = 36 * mm
+    col_val = CONTENT_W / 2 - col_lbl
     data = [
-        [Paragraph('<b>Case ID</b>', styles['Small']),
-         Paragraph(str(p.get('case_id', '—')), styles['Normal']),
+        [Paragraph('<b>Case ID</b>',      styles['Small']),
+         Paragraph(str(p.get('case_id',  '—')), styles['Normal']),
          Paragraph('<b>Patient Name</b>', styles['Small']),
-         Paragraph(str(p.get('name', '—')), styles['Normal'])],
-        [Paragraph('<b>Age</b>', styles['Small']),
-         Paragraph(str(p.get('age', '—')), styles['Normal']),
-         Paragraph('<b>Gender</b>', styles['Small']),
-         Paragraph(str(p.get('gender', '—')).title(), styles['Normal'])],
-        [Paragraph('<b>Report Date</b>', styles['Small']),
+         Paragraph(str(p.get('name',     '—')), styles['Normal'])],
+        [Paragraph('<b>Age</b>',          styles['Small']),
+         Paragraph(str(p.get('age',      '—')), styles['Normal']),
+         Paragraph('<b>Gender</b>',       styles['Small']),
+         Paragraph(str(p.get('gender',   '—')).title(), styles['Normal'])],
+        [Paragraph('<b>Report Date</b>',  styles['Small']),
          Paragraph(datetime.now().strftime('%Y-%m-%d'), styles['Normal']),
          Paragraph('<b>Report Time</b>', styles['Small']),
-         Paragraph(datetime.now().strftime('%H:%M'), styles['Normal'])],
+         Paragraph(datetime.now().strftime('%H:%M'),    styles['Normal'])],
     ]
-    t = Table(data, colWidths=[38 * mm, 55 * mm, 38 * mm, 54 * mm])
+    t = Table(data, colWidths=[col_lbl, col_val, col_lbl, col_val])
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), C_LIGHT_BG),
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#D6E4F0')),
-        ('BACKGROUND', (2, 0), (2, -1), colors.HexColor('#D6E4F0')),
-        ('FONTSIZE',   (0, 0), (-1, -1), 9),
-        ('VALIGN',     (0, 0), (-1, -1), 'MIDDLE'),
-        ('PADDING',    (0, 0), (-1, -1), 7),
-        ('BOX',        (0, 0), (-1, -1), 1, C_BORDER),
-        ('INNERGRID',  (0, 0), (-1, -1), 0.5, C_BORDER),
+        ('BACKGROUND',     (0, 0), (-1, -1), C_LIGHT_BG),
+        ('BACKGROUND',     (0, 0), (0, -1),  colors.HexColor('#D6E4F0')),
+        ('BACKGROUND',     (2, 0), (2, -1),  colors.HexColor('#D6E4F0')),
+        ('FONTSIZE',       (0, 0), (-1, -1), 9),
+        ('VALIGN',         (0, 0), (-1, -1), 'MIDDLE'),
+        ('PADDING',        (0, 0), (-1, -1), 7),
+        ('BOX',            (0, 0), (-1, -1), 1,   C_BORDER),
+        ('INNERGRID',      (0, 0), (-1, -1), 0.5, C_BORDER),
         ('ROWBACKGROUNDS', (0, 0), (-1, -1), [C_LIGHT_BG, colors.white, C_LIGHT_BG]),
     ]))
     items.append(t)
@@ -293,39 +296,48 @@ def _section_analysis_summary(analysis_dict, styles):
     items.append(SectionHeader('Analysis Results'))
     items.append(Spacer(1, 10))
 
-    prob = float(analysis_dict.get('lesion_probability', 0))
-    conf = float(analysis_dict.get('overall_confidence', 0))
+    prob       = float(analysis_dict.get('lesion_probability', 0))
+    conf       = float(analysis_dict.get('overall_confidence', 0))
     conf_label, conf_color = _confidence_label(
         analysis_dict.get('confidence_level', 'Analysis Failed'))
 
-    # ── 3-up metric cards ─────────────────────────────────────────────────────
-    card_prob = MetricCard('LESION PROBABILITY', f'{prob:.1f}%',
-                           _risk_color(prob), width=52 * mm)
-    card_conf = MetricCard('OVERALL CONFIDENCE', f'{conf:.1f}%',
-                           C_ACCENT, width=52 * mm)
+    # ── 3-up metric cards — widths must sum to CONTENT_W ────────────────────
+    # Two equal narrow cards + one slightly wider card
+    card_w_sm = (CONTENT_W - 4 * mm) / 3          # ~182 pt each with small gaps
+    card_w_lg = CONTENT_W - 2 * card_w_sm - 4 * mm
+
+    card_prob = MetricCard('LESION PROBABILITY',  f'{prob:.1f}%',
+                           _risk_color(prob),       width=card_w_sm - 2)
+    card_conf = MetricCard('OVERALL CONFIDENCE',  f'{conf:.1f}%',
+                           C_ACCENT,               width=card_w_sm - 2)
     card_lvl  = MetricCard('CONFIDENCE LEVEL',
                            conf_label.replace(' CONFIDENCE', '').replace(' ', '\n'),
-                           conf_color, width=66 * mm)
+                           conf_color,             width=card_w_lg - 2)
 
-    card_row = Table([[card_prob, card_conf, card_lvl]],
-                     colWidths=[56 * mm, 56 * mm, 70 * mm])
+    card_row = Table(
+        [[card_prob, card_conf, card_lvl]],
+        colWidths=[card_w_sm, card_w_sm, card_w_lg],
+    )
     card_row.setStyle(TableStyle([
-        ('ALIGN',  (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('PADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN',   (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN',  (0, 0), (-1, -1), 'MIDDLE'),
+        ('PADDING', (0, 0), (-1, -1), 2),
     ]))
     items.append(card_row)
     items.append(Spacer(1, 14))
 
     # ── Probability bars ─────────────────────────────────────────────────────
+    label_col = 44 * mm
+    bar_col   = CONTENT_W - label_col
+
     bar_section = [
         [Paragraph('<b>Lesion Probability</b>', styles['Small']),
-         HorizontalBar(prob, bar_color=_risk_color(prob))],
+         HorizontalBar(prob, width=bar_col, bar_color=_risk_color(prob))],
         [Spacer(1, 4), Spacer(1, 4)],
         [Paragraph('<b>Overall Confidence</b>', styles['Small']),
-         HorizontalBar(conf, bar_color=C_ACCENT)],
+         HorizontalBar(conf, width=bar_col, bar_color=C_ACCENT)],
     ]
-    bar_table = Table(bar_section, colWidths=[44 * mm, CONTENT_W - 44 * mm])
+    bar_table = Table(bar_section, colWidths=[label_col, bar_col])
     bar_table.setStyle(TableStyle([
         ('VALIGN',  (0, 0), (-1, -1), 'MIDDLE'),
         ('PADDING', (0, 0), (-1, -1), 2),
@@ -333,7 +345,6 @@ def _section_analysis_summary(analysis_dict, styles):
     items.append(bar_table)
     items.append(Spacer(1, 16))
     return items
-
 
 def _section_regional(regions, styles):
     """Per-region confidence table with color-coded risk."""
@@ -348,6 +359,13 @@ def _section_regional(regions, styles):
             styles['Muted']))
         items.append(Spacer(1, 12))
         return items
+
+    # Column widths must sum to CONTENT_W
+    col_idx   = 12 * mm
+    col_conf  = 30 * mm
+    col_score = 28 * mm
+    col_risk  = 28 * mm
+    col_name  = CONTENT_W - col_idx - col_conf - col_score - col_risk
 
     header_row = [
         Paragraph('<b>#</b>',           styles['TableHeader']),
@@ -364,15 +382,15 @@ def _section_regional(regions, styles):
         rc    = _risk_color(c_val)
         hex_c = rc.hexval()[2:]
         rows.append([
-            Paragraph(str(i),              styles['TableCell']),
-            Paragraph(r.get('name', f'Region {i}'), styles['TableCell']),
-            Paragraph(f'{c_val:.1f}%',     styles['TableCell']),
-            Paragraph(f'{s_val:.4f}',      styles['TableCell']),
+            Paragraph(str(i),                         styles['TableCell']),
+            Paragraph(r.get('name', f'Region {i}'),   styles['TableCell']),
+            Paragraph(f'{c_val:.1f}%',                styles['TableCell']),
+            Paragraph(f'{s_val:.4f}',                 styles['TableCell']),
             Paragraph(f'<font color="#{hex_c}"><b>{risk}</b></font>',
                       styles['TableCell']),
         ])
 
-    t = Table(rows, colWidths=[12 * mm, 68 * mm, 32 * mm, 28 * mm, 25 * mm])
+    t = Table(rows, colWidths=[col_idx, col_name, col_conf, col_score, col_risk])
     t.setStyle(TableStyle([
         ('BACKGROUND',     (0, 0), (-1, 0), C_PRIMARY),
         ('TEXTCOLOR',      (0, 0), (-1, 0), C_WHITE),
@@ -383,7 +401,7 @@ def _section_regional(regions, styles):
         ('TOPPADDING',     (0, 0), (-1, -1), 7),
         ('BOTTOMPADDING',  (0, 0), (-1, -1), 7),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, C_STRIPE]),
-        ('BOX',            (0, 0), (-1, -1), 1, C_BORDER),
+        ('BOX',            (0, 0), (-1, -1), 1,   C_BORDER),
         ('GRID',           (0, 0), (-1, -1), 0.3, C_BORDER),
     ]))
     items.append(t)
@@ -425,33 +443,28 @@ def _section_tile_distribution(tile_scores, styles):
     items.append(SectionHeader('Tile Probability Distribution'))
     items.append(Spacer(1, 8))
 
-    # Build 10 buckets 0-9%, 10-19%, ... 90-100%
     bins = [0] * 10
     for s in tile_scores:
         idx = min(int(float(s) * 10), 9)
         bins[idx] += 1
-    total = max(sum(bins), 1)
+    total   = max(sum(bins), 1)
     max_bin = max(bins) or 1
 
-    labels = [f'{i*10}-{(i+1)*10}%' for i in range(10)]
-    col_w = 16 * mm
+    labels  = [f'{i*10}-{(i+1)*10}%' for i in range(10)]
+    # Distribute CONTENT_W evenly across 10 columns
+    col_w   = CONTENT_W / 10
 
     count_row, bar_row, label_row = [], [], []
     for i, (cnt, lbl) in enumerate(zip(bins, labels)):
-        pct    = cnt / total * 100
-        bar_h  = max(2, int((cnt / max_bin) * 40))
-        rc     = _risk_color(i * 10)
-        hex_c  = rc.hexval()[2:]
+        bar_h = max(2, int((cnt / max_bin) * 40))
+        rc    = _risk_color(i * 10)
+        hex_c = rc.hexval()[2:]
 
         count_row.append(Paragraph(
             f'<font size="7"><b>{cnt}</b></font>', styles['Center']))
-
-        # Represent bar height via font-size scaling (visual trick in ReportLab)
-        bar_char = '|' * max(1, bar_h // 4)
         bar_row.append(Paragraph(
             f'<font size="{max(6, bar_h // 2)}" color="#{hex_c}"><b>|</b></font>',
             styles['Center']))
-
         label_row.append(Paragraph(
             f'<font size="6">{lbl}</font>', styles['Center']))
 
@@ -557,7 +570,6 @@ def _section_recommendations(analysis_dict, styles):
     items.append(SectionHeader('Clinical Recommendations', color=rc))
     items.append(Spacer(1, 8))
 
-    # Priority badge
     badge = Table(
         [[Paragraph(f'<b>{title}</b>', styles['RecTitle'])]],
         colWidths=[CONTENT_W])
@@ -568,13 +580,14 @@ def _section_recommendations(analysis_dict, styles):
     items.append(badge)
     items.append(Spacer(1, 8))
 
-    hex_c = rc.hexval()[2:]
+    hex_c    = rc.hexval()[2:]
+    num_col  = 10 * mm
+    text_col = CONTENT_W - num_col
     for i, rec in enumerate(recs, 1):
         row = Table(
-            [[Paragraph(f'<font color="#{hex_c}"><b>{i}</b></font>',
-                        styles['Center']),
+            [[Paragraph(f'<font color="#{hex_c}"><b>{i}</b></font>', styles['Center']),
               Paragraph(rec, styles['Normal'])]],
-            colWidths=[10 * mm, CONTENT_W - 10 * mm])
+            colWidths=[num_col, text_col])
         row.setStyle(TableStyle([
             ('BACKGROUND',    (0, 0), (-1, -1), colors.white),
             ('BOX',           (0, 0), (-1, -1), 0.5, C_BORDER),
@@ -600,7 +613,7 @@ class ReportService:
 
     @staticmethod
     def generate_pdf_report(db: Session, report_data) -> str:  # type: ignore[valid-type]
-        from models.models import Patient, Analysis          # noqa: F401 — local import
+        from models.models import Patient, Analysis          # noqa: F401
 
         patient  = db.query(Patient).filter(Patient.id == report_data.patient_id).first()
         analysis = db.query(Analysis).filter(Analysis.id == report_data.analysis_id).first()
@@ -638,8 +651,10 @@ class ReportService:
 
         doc = SimpleDocTemplate(
             path, pagesize=A4,
-            topMargin=58, bottomMargin=42,
-            leftMargin=20 * mm, rightMargin=20 * mm,
+            topMargin=TOP_MARGIN,
+            bottomMargin=BOTTOM_MARGIN,
+            leftMargin=LEFT_MARGIN,
+            rightMargin=RIGHT_MARGIN,
         )
         doc.case_id = case_id
 
@@ -663,7 +678,7 @@ class ReportService:
 
     @staticmethod
     def create_report(db: Session, report_data) -> object:  # type: ignore[valid-type]
-        from models.models import Report                     # noqa: F401 — local import
+        from models.models import Report                     # noqa: F401
 
         report_path = ReportService.generate_pdf_report(db, report_data)
         db_report = Report(
@@ -679,10 +694,10 @@ class ReportService:
 
     @staticmethod
     def get_report(db: Session, report_id: int):
-        from models.models import Report                     # noqa: F401 — local import
+        from models.models import Report                     # noqa: F401
         return db.query(Report).filter(Report.id == report_id).first()
 
     @staticmethod
     def get_reports_by_patient(db: Session, patient_id: int):
-        from models.models import Report                     # noqa: F401 — local import
+        from models.models import Report                     # noqa: F401
         return db.query(Report).filter(Report.patient_id == patient_id).all()

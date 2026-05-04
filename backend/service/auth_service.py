@@ -5,7 +5,6 @@ email is ever sent — matches the working reference pattern.
 """
 from __future__ import annotations
 
-import logging
 import os
 import traceback
 

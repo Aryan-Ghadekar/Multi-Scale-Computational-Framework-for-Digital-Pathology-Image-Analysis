@@ -4,10 +4,6 @@ FastAPI router for all authentication endpoints.
 Mount in main.py:  app.include_router(auth_router)
 """
 from __future__ import annotations
-
-import logging
-import traceback
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
